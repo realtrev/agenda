@@ -31,7 +31,7 @@
 				createBlock(
 					{
 						block_type: 'task',
-						content: 'BOP',
+						content: '',
 						completed: false,
 						date: block?.date,
 						id: 'new-' + Math.random().toString(36).substr(2, 9),
