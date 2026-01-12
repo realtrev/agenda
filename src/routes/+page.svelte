@@ -17,7 +17,7 @@
 
 <div class="document-container" data-id="document-view">
 	<!-- enumerate document view -->
-	{#each $documentView as item, index}
-		<BlockElement bind:block={item} {index} />
+	{#each $documentView as item (item.id)}
+		<BlockElement block={item} />
 	{/each}
 </div>

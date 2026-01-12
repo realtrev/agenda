@@ -13,14 +13,6 @@ export const blocks = writable<Block[]>();
 
 blocks.set([
 	{
-		id: '12391237461',
-		block_type: 'header',
-		content: 'The Big Deadline',
-		completed: false,
-		date: '2026-01-08',
-		agenda_order: -1
-	},
-	{
 		id: '498089364896',
 		block_type: 'task',
 		content: 'Submit project proposal #School',
@@ -37,27 +29,43 @@ blocks.set([
 		agenda_order: 1
 	},
 	{
-		id: '3408287942387923',
-		block_type: 'task',
-		content: 'Email the team #work',
-		completed: true,
-		date: '2026-01-09',
-		agenda_order: 0
-	},
-	{
-		id: '3408287942387923',
-		block_type: 'task',
-		content: 'Email the team #work',
-		completed: false,
-		date: '2026-01-10',
-		agenda_order: 0
-	},
-	{
 		id: '3408287942387924',
 		block_type: 'task',
 		content: 'Finish the report',
 		completed: false,
 		date: '2026-01-10',
+		agenda_order: 0
+	},
+	{
+		id: '49865898789',
+		block_type: 'task',
+		content: 'Finish health class project',
+		completed: false,
+		date: '2026-01-11',
+		agenda_order: 1
+	},
+	{
+		id: '298894868769',
+		block_type: 'task',
+		content: 'ROBOTICCS',
+		completed: true,
+		date: '2026-01-11',
+		agenda_order: 0
+	},
+	{
+		id: '12391237461',
+		block_type: 'header',
+		content: 'The Big Deadline',
+		completed: false,
+		date: '2026-01-08',
+		agenda_order: -1
+	},
+	{
+		id: '3408287942387923',
+		block_type: 'task',
+		content: 'Email the team #work',
+		completed: false,
+		date: '2026-01-09',
 		agenda_order: 0
 	}
 ]);
@@ -66,6 +74,7 @@ export type RenderItem =
 	| {
 			type: 'overdue';
 			id: string;
+			index: number;
 	  }
 	| {
 			type: 'block';
@@ -75,8 +84,9 @@ export type RenderItem =
 			agenda_order: number;
 			block_type: 'task' | 'label' | 'text' | 'header';
 			completed: boolean;
+			index: number;
 	  }
-	| { type: 'ghost'; id: string; date: string };
+	| { type: 'ghost'; id: string; date: string; index: number };
 
 export const updateBlock = (block: RenderItem, newData: Object) => {
 	// check if updatedBlock is of type 'block'
@@ -90,28 +100,25 @@ export const updateBlock = (block: RenderItem, newData: Object) => {
 	});
 };
 
-// create block (at an index)
-export const createBlock = (newBlock: Block, index?: number) => {
-	blocks.update((currentBlocks) => {
-		if (index !== undefined) {
-			const updatedBlocks = [...currentBlocks];
-			updatedBlocks.splice(index, 0, newBlock);
+//       if (index !== undefined) {
+// 			const updatedBlocks = [...currentBlocks];
+// 			updatedBlocks.splice(index, 0, newBlock);
 
-			// update agenda_order for all blocks with the same date that come after the inserted block
-			for (let i = 0; i < updatedBlocks.length; i++) {
-				if (updatedBlocks[i].date === newBlock.date && updatedBlocks[i].id !== newBlock.id) {
-					if (i > index) {
-						updatedBlocks[i].agenda_order += 1;
-					}
-				}
-			}
+// 			// update agenda_order for all blocks with the same date that come after the inserted block
+// 			for (let i = 0; i < updatedBlocks.length; i++) {
+// 				if (updatedBlocks[i].date === newBlock.date && updatedBlocks[i].id !== newBlock.id) {
+// 					if (i > index) {
+// 						updatedBlocks[i].agenda_order += 1;
+// 					}
+// 				}
+// 			}
 
-			return updatedBlocks;
-		} else {
-			return [...currentBlocks, newBlock];
-		}
-	});
-};
+// 			return updatedBlocks;
+// 		} else {
+// 			return [...currentBlocks, newBlock];
+// 		}
+// 	});
+// };
 
 export const documentView = derived(blocks, ($blocks) => {
 	const renderList: RenderItem[] = [];
@@ -129,7 +136,6 @@ export const documentView = derived(blocks, ($blocks) => {
 		const day = String(date.getDate()).padStart(2, '0');
 		const dateString = `${year}-${month}-${day}`;
 		dates.push(dateString);
-		// conole
 	}
 
 	// 1. Sort blocks by date, then by their internal agenda_order
@@ -137,6 +143,8 @@ export const documentView = derived(blocks, ($blocks) => {
 		if (a.date !== b.date) return a.date.localeCompare(b.date);
 		return a.agenda_order - b.agenda_order;
 	});
+
+	console.log(sortedBlocks);
 
 	// collect all overdue blocks. since they're sorted find the first date that is >= today
 	// and take all blocks before that
@@ -155,9 +163,9 @@ export const documentView = derived(blocks, ($blocks) => {
 
 	// Inject Overdue Section if there are overdue blocks
 	if (overdueBlocks.length > 0) {
-		renderList.push({ type: 'overdue', id: 'header-overdue' });
+		renderList.push({ type: 'overdue', id: 'header-overdue', index: 0 });
 		overdueBlocks.forEach((block) => {
-			renderList.push({ ...block, type: 'block' });
+			renderList.push({ ...block, type: 'block', index: renderList.length });
 		});
 	}
 
@@ -175,19 +183,37 @@ export const documentView = derived(blocks, ($blocks) => {
 				date,
 				agenda_order: -1,
 				block_type: 'header',
-				completed: false
+				completed: false,
+				index: renderList.length
 			});
 		}
 
 		// Inject actual Blocks
 		const dayBlocks = upcomingBlocks.filter((b) => b.date === date);
 		dayBlocks.forEach((block) => {
-			renderList.push({ ...block, type: 'block' });
+			renderList.push({ ...block, type: 'block', index: renderList.length });
 		});
 
 		// Inject Ghost (Local only)
-		renderList.push({ id: `ghost-${date}`, type: 'ghost', date });
+		renderList.push({ id: `ghost-${date}`, type: 'ghost', date, index: renderList.length });
 	});
 
 	return renderList;
 });
+
+// create block (at an index)
+export const createBlock = (newBlock: Block) => {
+	blocks.update((currentBlocks) => {
+		return currentBlocks.map((block, blockIndex) => {
+			if (block.date === newBlock.date && block.agenda_order >= newBlock.agenda_order) {
+				return { ...block, agenda_order: block.agenda_order + 1 };
+			}
+			return block;
+		});
+	});
+
+	blocks.update((all) => {
+		const result = [...all, newBlock];
+		return result;
+	});
+};

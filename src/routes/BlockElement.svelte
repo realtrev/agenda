@@ -1,55 +1,51 @@
 <script lang="ts">
 	import { Checkbox } from '$lib/components/ui/checkbox';
-	import {
-		blocks,
-		documentView,
-		type RenderItem,
-		updateBlock,
-		createBlock
-	} from '$lib/stores/workspace';
+	import { documentView, type RenderItem, updateBlock, createBlock } from '$lib/stores/workspace';
 	import { moveFocus } from '$lib/stores/ui';
+	import { tick } from 'svelte';
 	export let block: RenderItem;
-	export let index: number;
-	let element: HTMLElement;
 
 	let content: string = block.type === 'block' ? block?.content : '';
 	let checked: boolean = block.type === 'block' ? block?.completed : false;
 
 	function setupKeyboard(node: HTMLElement) {
-		const listener = (e: KeyboardEvent) => {
-			console.log(e.key);
-			if (e.key === 'ArrowUp' && index > 1) {
+		const listener = async (e: KeyboardEvent) => {
+			if (e.key === 'ArrowUp' && block.index > 1) {
 				e.preventDefault();
-				moveFocus('up', $documentView, index);
+				moveFocus('up', $documentView, block.index);
 			} else if (e.key === 'ArrowDown') {
 				e.preventDefault();
-				moveFocus('down', $documentView, index);
+				moveFocus('down', $documentView, block.index);
 			} else if (e.key === 'Enter') {
 				e.preventDefault();
+				// check if the block below is a ghost block
+				const nextBlock = $documentView[block.index + 1];
+				if (nextBlock && (nextBlock.type === 'ghost' || block.type === 'ghost')) {
+					// move focus to the ghost block
+					moveFocus('down', $documentView, block.index);
+					return;
+				}
 				// create a new block below
 				if (block.type !== 'block') return;
-				createBlock(
-					{
-						block_type: 'task',
-						content: '',
-						completed: false,
-						date: block?.date,
-						id: 'new-' + Math.random().toString(36).substr(2, 9),
-						agenda_order: block.agenda_order + 1
-					},
-					index
-				);
+				console.log(block);
+				createBlock({
+					block_type: 'task',
+					content: '',
+					completed: false,
+					date: block?.date,
+					id: 'new-' + Math.random().toString(36).substr(2, 9),
+					agenda_order: block.agenda_order + 1
+				});
 				// move focus to the new block
-				setTimeout(() => {
-					moveFocus('down', $documentView, index);
-				}, 0);
+				await tick();
+				moveFocus('down', $documentView, block.index);
 			} else if (e.key === 'Backspace') {
 				// only delete if the content is empty
 				if (node.innerText.trim() === '') {
 					e.preventDefault();
 					// blocks.deleteBlock(block.id, $documentView);
 					// move focus to the previous block
-					moveFocus('up', $documentView, index);
+					moveFocus('up', $documentView, block.index);
 				}
 			} else if (e.key === 'Tab') {
 				e.preventDefault();
@@ -75,7 +71,6 @@
 	}
 
 	function handleInput() {
-		console.log(content);
 		if (block.type === 'block') {
 			updateBlock(block, { content: content, checked });
 		}
@@ -88,7 +83,6 @@
 			<div class="group flex items-start gap-3 rounded-md px-2 py-1 hover:bg-white/5">
 				<Checkbox bind:checked onCheckedChange={handleInput} class="mt-1.25" />
 				<div
-					bind:this={element}
 					role="textbox"
 					use:setupKeyboard
 					oninput={handleInput}
@@ -138,29 +132,25 @@
 				contenteditable="true"
 				use:setupKeyboard
 				data-id={block.id}
-				oninput={(e: Event) => {
+				oninput={async (e: Event) => {
 					const target = e.target as HTMLDivElement;
 					// get previous block in agenda order
-					const prevBlock = $documentView[index - 1];
+					const prevBlock = $documentView[block.index - 1];
 					if (prevBlock.type !== 'block') {
 						target.innerHTML = '';
 						return;
 					}
-					createBlock(
-						{
-							block_type: 'task',
-							content: target.innerHTML,
-							completed: false,
-							date: block?.date,
-							id: 'new-' + Math.random().toString(36).substr(2, 9),
-							agenda_order: prevBlock.agenda_order + 1
-						},
-						index - 1
-					);
+					createBlock({
+						block_type: 'task',
+						content: target.innerHTML,
+						completed: false,
+						date: block?.date,
+						id: 'new-' + Math.random().toString(36).substr(2, 9),
+						agenda_order: prevBlock.agenda_order + 1
+					});
 					// move focus to the new block
-					setTimeout(() => {
-						moveFocus('up', $documentView, index + 1);
-					}, 0);
+					await tick();
+					moveFocus('up', $documentView, block.index);
 
 					target.innerHTML = '';
 				}}

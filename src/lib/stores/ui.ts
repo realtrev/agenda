@@ -11,7 +11,6 @@ export function moveFocus(direction: 'up' | 'down', currentList: RenderItem[], i
 		newIndex = Math.min(currentList.length - 1, index + 1); // Move down but not beyond the list
 	}
 
-	console.log('123asdasdadasdada', newIndex);
 	if (newIndex === index) return;
 
 	// select the focused item from the window by getting the id first
