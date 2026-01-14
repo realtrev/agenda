@@ -17,56 +17,32 @@ blocks.set([
 		block_type: 'task',
 		content: 'Submit project proposal #School',
 		completed: false,
-		date: '2026-01-08',
-		agenda_order: 3
+		date: '2026-01-14',
+		agenda_order: 0
 	},
 	{
-		id: '32782437984',
+		id: '5328498894598',
 		block_type: 'task',
-		content: 'Buy groceries',
+		content: 'Testing a new feature',
 		completed: false,
-		date: '2026-01-09',
+		date: '2026-01-15',
+		agenda_order: 0
+	},
+	{
+		id: '58787968899',
+		block_type: 'task',
+		content: 'Should have been done already',
+		completed: false,
+		date: '2026-01-12',
+		agenda_order: 0
+	},
+	{
+		id: '0589094909085',
+		block_type: 'task',
+		content: 'This one too. School #school',
+		completed: false,
+		date: '2026-01-12',
 		agenda_order: 1
-	},
-	{
-		id: '3408287942387924',
-		block_type: 'task',
-		content: 'Finish the report',
-		completed: false,
-		date: '2026-01-10',
-		agenda_order: 0
-	},
-	{
-		id: '49865898789',
-		block_type: 'task',
-		content: 'Finish health class project',
-		completed: false,
-		date: '2026-01-11',
-		agenda_order: 1
-	},
-	{
-		id: '298894868769',
-		block_type: 'task',
-		content: 'ROBOTICCS',
-		completed: true,
-		date: '2026-01-11',
-		agenda_order: 0
-	},
-	{
-		id: '12391237461',
-		block_type: 'header',
-		content: 'The Big Deadline',
-		completed: false,
-		date: '2026-01-08',
-		agenda_order: -1
-	},
-	{
-		id: '3408287942387923',
-		block_type: 'task',
-		content: 'Email the team #work',
-		completed: false,
-		date: '2026-01-09',
-		agenda_order: 0
 	}
 ]);
 
@@ -99,26 +75,6 @@ export const updateBlock = (block: RenderItem, newData: Object) => {
 		);
 	});
 };
-
-//       if (index !== undefined) {
-// 			const updatedBlocks = [...currentBlocks];
-// 			updatedBlocks.splice(index, 0, newBlock);
-
-// 			// update agenda_order for all blocks with the same date that come after the inserted block
-// 			for (let i = 0; i < updatedBlocks.length; i++) {
-// 				if (updatedBlocks[i].date === newBlock.date && updatedBlocks[i].id !== newBlock.id) {
-// 					if (i > index) {
-// 						updatedBlocks[i].agenda_order += 1;
-// 					}
-// 				}
-// 			}
-
-// 			return updatedBlocks;
-// 		} else {
-// 			return [...currentBlocks, newBlock];
-// 		}
-// 	});
-// };
 
 export const documentView = derived(blocks, ($blocks) => {
 	const renderList: RenderItem[] = [];
