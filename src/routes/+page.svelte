@@ -3,7 +3,7 @@
 	import BlockElement from './BlockElement.svelte';
 
 	// when mouse is clicked reset selection unless clicking on a block
-	$: console.log($documentView);
+	// $: console.log($documentView);
 </script>
 
 <!-- {#if overdue.length > 0}

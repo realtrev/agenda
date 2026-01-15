@@ -23,7 +23,7 @@ blocks.set([
 	{
 		id: '5328498894598',
 		block_type: 'task',
-		content: 'Testing a new feature',
+		content: 'Testing a new feature hello world',
 		completed: false,
 		date: '2026-01-15',
 		agenda_order: 0
@@ -66,6 +66,7 @@ export type RenderItem =
 
 export const updateBlock = (block: RenderItem, newData: Object) => {
 	// check if updatedBlock is of type 'block'
+	// console.log(newData);
 	if (block.type !== 'block') return;
 	// create the block object
 	// update the block with that id
@@ -99,8 +100,6 @@ export const documentView = derived(blocks, ($blocks) => {
 		if (a.date !== b.date) return a.date.localeCompare(b.date);
 		return a.agenda_order - b.agenda_order;
 	});
-
-	console.log(sortedBlocks);
 
 	// collect all overdue blocks. since they're sorted find the first date that is >= today
 	// and take all blocks before that
@@ -157,7 +156,7 @@ export const documentView = derived(blocks, ($blocks) => {
 	return renderList;
 });
 
-// create block (at an index)
+// create block
 export const createBlock = (newBlock: Block) => {
 	blocks.update((currentBlocks) => {
 		return currentBlocks.map((block, blockIndex) => {
@@ -171,5 +170,12 @@ export const createBlock = (newBlock: Block) => {
 	blocks.update((all) => {
 		const result = [...all, newBlock];
 		return result;
+	});
+};
+
+// delete a block
+export const deleteBlock = (deletedBlockId: string) => {
+	blocks.update((currentBlocks) => {
+		return currentBlocks.filter((block) => block.id !== deletedBlockId);
 	});
 };
