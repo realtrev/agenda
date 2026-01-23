@@ -43,6 +43,14 @@ blocks.set([
 		completed: false,
 		date: '2026-01-12',
 		agenda_order: 1
+	},
+	{
+		id: '9699845709',
+		block_type: 'header',
+		content: 'MLK Day',
+		completed: false,
+		date: '2026-01-19',
+		agenda_order: -1
 	}
 ]);
 

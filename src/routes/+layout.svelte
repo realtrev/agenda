@@ -2,7 +2,11 @@
 	import './layout.css';
 	import { Button } from '$lib/components/ui/button';
 	import * as Sheet from '$lib/components/ui/sheet';
-	import { Calendar, LayoutGrid, SquareCheckBig, PanelLeft, User, Inbox } from 'lucide-svelte';
+	import CalendarIcon from '@lucide/svelte/icons/calendar';
+	import LayoutGridIcon from '@lucide/svelte/icons/layout-grid';
+	import SquareCheckBigIcon from '@lucide/svelte/icons/square-check-big';
+	import PanelLeftIcon from '@lucide/svelte/icons/panel-left';
+	import UserIcon from '@lucide/svelte/icons/user';
 	import { Avatar, AvatarFallback, AvatarImage } from '$lib/components/ui/avatar';
 	import TDAgenda from '$lib/components/TDAgenda.svelte';
 	import Sidebar from './Sidebar.svelte';
@@ -41,7 +45,7 @@
 	<div class="relative flex h-full flex-1 flex-col">
 		<header class="flex items-center justify-between px-6 py-4">
 			<Button variant="ghost" size="icon" onclick={() => (sidebarOpen = !sidebarOpen)}>
-				<PanelLeft size={20} />
+				<PanelLeftIcon size={20} />
 			</Button>
 
 			<div class="flex-1"></div>
@@ -50,7 +54,7 @@
 				class="h-8 w-8 cursor-pointer ring-offset-background transition-all hover:ring-2 hover:ring-ring"
 			>
 				<AvatarImage src="https://github.com/shadcn.png" alt="User" />
-				<AvatarFallback><User /></AvatarFallback>
+				<AvatarFallback><UserIcon /></AvatarFallback>
 			</Avatar>
 		</header>
 
@@ -63,7 +67,7 @@
 								variant: 'secondary',
 								size: 'icon',
 								class: 'h-10 w-10 rounded-full text-muted-foreground hover:text-foreground'
-							})}><SquareCheckBig size={20} /></Tooltip.Trigger
+							})}><SquareCheckBigIcon size={20} /></Tooltip.Trigger
 						>
 						<Tooltip.Content side="right" sideOffset={10}>
 							<p>Agenda</p>
@@ -77,7 +81,7 @@
 								variant: 'ghost',
 								size: 'icon',
 								class: 'h-10 w-10 rounded-full text-muted-foreground hover:text-foreground'
-							})}><LayoutGrid size={20} /></Tooltip.Trigger
+							})}><LayoutGridIcon size={20} /></Tooltip.Trigger
 						>
 						<Tooltip.Content side="right" sideOffset={10}>
 							<p>Projects</p>
@@ -91,7 +95,7 @@
 								variant: 'ghost',
 								size: 'icon',
 								class: 'h-10 w-10 rounded-full text-muted-foreground hover:text-foreground'
-							})}><Calendar size={20} /></Tooltip.Trigger
+							})}><CalendarIcon size={20} /></Tooltip.Trigger
 						>
 						<Tooltip.Content side="right" sideOffset={10}>
 							<p>Calendar</p>

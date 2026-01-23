@@ -1,5 +1,10 @@
 <script lang="ts">
 	import { Checkbox } from '$lib/components/ui/checkbox';
+	import { Badge } from '$lib/components/ui/badge';
+	import CalendarIcon from '@lucide/svelte/icons/calendar';
+	import HashIcon from '@lucide/svelte/icons/hash';
+	import RepeatIcon from '@lucide/svelte/icons/repeat';
+	import XIcon from '@lucide/svelte/icons/x';
 	import {
 		documentView,
 		type RenderItem,
@@ -98,14 +103,14 @@
 
 	// format the date with the given date and a label and format like
 	// Mon 1/1 The Big Deadline. Make sure theres NO comma between week and date
-	function formatDateLabel(date: Date, label: string = '') {
+	function formatDateLabel(date: Date) {
 		// get the week
 		const weekday = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][
 			date.getUTCDay()
 		];
 		// get the month and day
 		const monthDay = date.getUTCMonth() + 1 + '/' + date.getUTCDate();
-		return `${weekday} ${monthDay} ${label}`;
+		return `${weekday} ${monthDay}`;
 	}
 
 	function handleInput() {
@@ -150,11 +155,23 @@
 				>
 					{content}
 				</div>
+
+				<div class="flex h-full items-center gap-1">
+					<Badge variant="outline" class="hidden group-focus-within:flex">
+						<CalendarIcon />
+						Friday 1/10
+					</Badge>
+					<Badge variant="outline" class="hidden group-focus-within:flex">
+						<RepeatIcon />
+						Weekly
+						<XIcon />
+					</Badge>
+				</div>
 			</div>
 		{:else if block.block_type === 'header'}
 			<div class="mt-6 mb-1 flex gap-1 border-b pb-2">
 				<h2 class="text-base font-semibold tracking-tight transition-colors first:mt-0">
-					{formatDateLabel(new Date(block.date), block.content)}
+					{formatDateLabel(new Date(block.date))}
 				</h2>
 				<h2
 					data-id={block.id}
