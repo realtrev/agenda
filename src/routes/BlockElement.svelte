@@ -644,20 +644,57 @@
 			</div>
 		{:else if block.block_type === 'header'}
 			<div class="mt-6 mb-1 flex gap-1 border-b pb-2">
-				<h2
-					class="text-sm text-muted"
-					contenteditable="true"
-					on:input={(e) =>
-						updateBlock(block, {
-							content: pmParagraphFromText((e.target as HTMLElement).innerText)
-						})}
-				>
+				{formatDateLabel(new Date(block.date!))}
+				<h2 class="text-sm text-muted" contenteditable="true">
 					{content}
 				</h2>
 			</div>
 		{:else}
 			<div class="py-1">{content}</div>
 		{/if}
+	{:else if block.type === 'overdue'}
+		<div class="mt-6">
+			<h2
+				class="mb-1 scroll-m-20 border-b pb-2 text-base font-semibold tracking-tight text-red-500 transition-colors first:mt-0"
+			>
+				Overdue
+			</h2>
+		</div>
+	{:else if block.type === 'ghost'}
+		<div class="group flex items-start gap-3 rounded-md px-2 py-1 hover:bg-white/5">
+			<Checkbox disabled class="mt-1.25" />
+
+			<div
+				role="textbox"
+				tabindex="0"
+				contenteditable="true"
+				use:setupKeyboard
+				data-id={block.id}
+				oninput={async (e: Event) => {
+					const target = e.target as HTMLDivElement;
+					// get previous block in agenda order
+					const prevBlock = $documentView[block.index - 1];
+					if (prevBlock.type !== 'block') {
+						target.innerText = '';
+						return;
+					}
+					createBlock({
+						block_type: 'task',
+						content: target.innerText,
+						completed: false,
+						date: block?.date,
+						id: 'new-' + Math.random().toString(36).substr(2, 9),
+						agenda_order: prevBlock.agenda_order + 1
+					});
+					// move focus to the new block
+					await tick();
+					moveFocus('up', $documentView, block.index);
+
+					target.innerText = '';
+				}}
+				class="ghost-box flex-1 leading-relaxed wrap-anywhere outline-none"
+			></div>
+		</div>
 	{/if}
 </div>
 
