@@ -37,6 +37,10 @@
 		"vite": "^7.2.6"
 	},
 	"dependencies": {
+		"@tiptap/core": "^3.17.0",
+		"@tiptap/extension-bubble-menu": "^3.17.0",
+		"@tiptap/pm": "^3.17.0",
+		"@tiptap/starter-kit": "^3.17.0",
 		"lucide-svelte": "^0.562.0"
 	}
 }
