@@ -36,8 +36,6 @@
 		onSelectionChange
 	}: any = $props();
 
-	console.log('editor', content);
-
 	// Local state
 	let editor: TipTapEditor | null = null;
 	let editorElement: HTMLElement | null = null;
