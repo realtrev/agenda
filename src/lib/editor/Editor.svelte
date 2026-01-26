@@ -115,16 +115,85 @@
 		}
 	}
 
+	// Helpers to convert between ProseMirror absolute positions and blockIndex/offset (character) coordinates
+	function _childTextLength(child: any) {
+		// For text nodes, use text length. For other inline nodes (atomic, etc.) treat as length 1.
+		if (!child) return 0;
+		if (child.isText) return child.text ? child.text.length : 0;
+		// Non-text inline nodes count as a single character unit
+		return 1;
+	}
+
+	function computeAbsolutePosForBlockOffset(blockIndex: number, offset: number) {
+		if (!editor) return 1;
+		const doc = editor.state.doc;
+		let pos = 0; // position before first child of doc
+		// add sizes of preceding blocks
+		for (let i = 0; i < blockIndex && i < doc.childCount; i++) pos += doc.child(i).nodeSize;
+		if (blockIndex >= doc.childCount) return doc.content.size;
+		const block = doc.child(blockIndex);
+		// accumulate character counts across inline children
+		let accum = 0;
+		for (let j = 0; j < block.childCount; j++) {
+			const child = block.child(j);
+			const childLen = _childTextLength(child);
+			// If the desired offset falls within this child, compute within-child position
+			if (accum + childLen >= offset) {
+				const within = Math.max(0, offset - accum);
+				// absolute position: block start (pos) + 1 for inside node + accum + within
+				return pos + 1 + accum + within;
+			}
+			accum += childLen;
+		}
+		// If offset beyond end of block, place at end of block
+		return pos + block.nodeSize - 1;
+	}
+
+	function computeBlockOffsetForAbsolutePos(absPos: number) {
+		if (!editor) return { blockIndex: 0, offset: 0 };
+		const doc = editor.state.doc;
+		// Clamp
+		const pos = Math.max(1, Math.min(absPos, doc.content.size));
+		let running = 1;
+		for (let i = 0; i < doc.childCount; i++) {
+			const block = doc.child(i);
+			const blockStart = running;
+			const blockEnd = running + block.nodeSize - 1; // inclusive
+			running += block.nodeSize;
+			if (pos >= blockStart && pos <= blockEnd) {
+				// position inside this block. compute offset as character count from block start
+				let accum = 0;
+				let innerPos = pos - (blockStart + 1); // zero-based index into inline content
+				if (innerPos < 0) innerPos = 0;
+				for (let j = 0; j < block.childCount; j++) {
+					const child = block.child(j);
+					const childLen = _childTextLength(child);
+					// If innerPos falls within this child's character range
+					if (innerPos <= accum + (childLen - 1)) {
+						const offsetInChild = innerPos - accum;
+						return { blockIndex: i, offset: accum + Math.max(0, offsetInChild) };
+					}
+					accum += childLen;
+				}
+				// At end of block
+				return { blockIndex: i, offset: accum };
+			}
+		}
+		// Default to end
+		return { blockIndex: Math.max(0, doc.childCount - 1), offset: 0 };
+	}
+
 	// Selection-change handler: called when the editor selection changes
 	function handleSelectionChange() {
 		if (!editor) return;
 		try {
 			const sel = editor.state.selection;
+			const cursor = { from: sel.from, to: sel.to, empty: sel.empty };
+			// compute block/offset positions for both ends
+			const start = computeBlockOffsetForAbsolutePos(cursor.from);
+			const end = computeBlockOffsetForAbsolutePos(cursor.to);
 			const selectedText = sel.empty ? '' : editor.state.doc.textBetween(sel.from, sel.to, '\n');
-			const payload = {
-				selection: { from: sel.from, to: sel.to, empty: sel.empty },
-				selectedText
-			};
+			const payload = { selection: cursor, start, end, selectedText };
 			if (typeof onSelectionChange === 'function') {
 				try {
 					onSelectionChange(payload);
@@ -243,7 +312,11 @@
 	export function getCursor() {
 		if (!editor) return null;
 		const sel = editor.state.selection;
-		return { from: sel.from, to: sel.to, empty: sel.empty };
+		const cursor = { from: sel.from, to: sel.to, empty: sel.empty };
+		// compute block/offset versions for start/end
+		const start = computeBlockOffsetForAbsolutePos(cursor.from);
+		const end = computeBlockOffsetForAbsolutePos(cursor.to);
+		return { ...cursor, start, end };
 	}
 
 	export function getSelectedText() {
@@ -253,36 +326,32 @@
 		return editor.state.doc.textBetween(sel.from, sel.to, '\n');
 	}
 
-	// Place cursor by blockIndex and offset (approximate using nodeSize internals)
+	// Place cursor by blockIndex and offset (character-based using inline text lengths)
 	export function setCursor(position: number | { blockIndex: number; offset: number }) {
 		if (!editor) return;
 		const doc = editor.state.doc;
 
-		function computePosForBlockOffset(blockIndex: number, offset: number) {
-			let pos = 0;
-			for (let i = 0; i < blockIndex && i < doc.childCount; i++) pos += doc.child(i).nodeSize;
-			if (blockIndex >= doc.childCount) return doc.content.size;
-			const block = doc.child(blockIndex);
-			let accum = 0;
-			for (let j = 0; j < block.childCount; j++) {
-				const child = block.child(j);
-				const childSize = child.nodeSize;
-				if (accum + childSize >= offset) return pos + 1 + accum + Math.min(offset, childSize);
-				accum += childSize;
-			}
-			return pos + block.nodeSize - 1;
-		}
-
+		let targetPos = 1;
 		if (typeof position === 'number') {
-			const targetPos = computePosForBlockOffset(position, 0);
-			editor.commands.setTextSelection(targetPos as any);
-			editor.commands.focus();
+			// interpret number as blockIndex (start of block)
+			targetPos = computeAbsolutePosForBlockOffset(position, 0);
 		} else {
 			const { blockIndex, offset } = position;
-			const targetPos = computePosForBlockOffset(blockIndex, offset);
-			editor.commands.setTextSelection(targetPos as any);
+			targetPos = computeAbsolutePosForBlockOffset(blockIndex, offset);
+		}
+
+		// Ensure targetPos within document bounds
+		targetPos = Math.max(1, Math.min(targetPos, doc.content.size));
+
+		// Use TipTap/ProseMirror command to set text selection; cast to any for compatibility
+		try {
+			(editor.commands as any).setTextSelection(targetPos as any);
+		} catch (e) {
+			// fallback: focus only
 			editor.commands.focus();
 		}
+		// focus after setting
+		editor.commands.focus();
 	}
 
 	// Pure helpers exposure
