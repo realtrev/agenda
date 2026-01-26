@@ -145,6 +145,20 @@
 		setTimeout(updateSelInfo, 50);
 	}
 
+	// Place cursor at the blockIndex/offset inputs and focus editor A
+	function placeCursorAtBlockOffset() {
+		const pos = { blockIndex: Number(blockIndex), offset: Number(offset) };
+		// Editor's focusEditor accepts an optional position and will call setCursor internally
+		if (editorA?.focusEditor) {
+			editorA.focusEditor(pos);
+		} else if (editorA?.setCursor) {
+			editorA.setCursor(pos);
+			editorA?.focusEditor?.();
+		}
+		// update selection info shortly after moving the cursor
+		setTimeout(updateSelInfo, 80);
+	}
+
 	// Optional callback props for editors (Svelte5-style callback props)
 	function handleEnterA(payload: any) {
 		// example: just log or update something
@@ -160,6 +174,17 @@
 		if (content) contentA = content;
 		// selection could have changed as a consequence of edits
 		updateSelInfo();
+	}
+
+	// Selection-change callback from Editor A (uses Editor.svelte's onSelectionChange prop)
+	function handleSelectionChangeA(payload: any) {
+		// payload = { selection: { from, to, empty }, selectedText }
+		try {
+			// keep a plain serializable copy so Svelte's $state updates reliably
+			selInfo = JSON.parse(JSON.stringify(payload));
+		} catch (e) {
+			selInfo = payload;
+		}
 	}
 
 	function handleChangeB({ content }: any) {
@@ -245,12 +270,18 @@
 			onChange={handleChangeA}
 			onEnter={handleEnterA}
 			onBackspace={handleBackspaceA}
+			onSelectionChange={handleSelectionChangeA}
 		/>
 		<div class="controls">
 			<button onclick={appendAtomicToA}>Append Atomic to A</button>
 			<button onclick={splitAAtFirstWord}>Split A at offset 5</button>
 			<button onclick={() => editorA?.focusEditor?.()}>Focus A</button>
 			<button onclick={placeCursorA}>Place Cursor at start A</button>
+			<button
+				onclick={() =>
+					editorA?.focusEditor?.({ blockIndex: Number(blockIndex), offset: Number(offset) })}
+				>Place Cursor at block/offset</button
+			>
 			<button onclick={updateSelInfo}>Get Selection A</button>
 		</div>
 

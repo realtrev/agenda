@@ -31,7 +31,9 @@
 		// event callbacks (runes-style callback props)
 		onChange,
 		onEnter,
-		onBackspace
+		onBackspace,
+		// selection change callback: called with { selection: { from, to, empty }, selectedText }
+		onSelectionChange
 	}: any = $props();
 
 	console.log('editor', content);
@@ -113,6 +115,28 @@
 		}
 	}
 
+	// Selection-change handler: called when the editor selection changes
+	function handleSelectionChange() {
+		if (!editor) return;
+		try {
+			const sel = editor.state.selection;
+			const selectedText = sel.empty ? '' : editor.state.doc.textBetween(sel.from, sel.to, '\n');
+			const payload = {
+				selection: { from: sel.from, to: sel.to, empty: sel.empty },
+				selectedText
+			};
+			if (typeof onSelectionChange === 'function') {
+				try {
+					onSelectionChange(payload);
+				} catch (e) {
+					/* swallow user callback errors */
+				}
+			}
+		} catch {
+			// ignore errors reading selection
+		}
+	}
+
 	onMount(() => {
 		editor = new TipTapEditor({
 			element: editorElement as HTMLElement,
@@ -132,13 +156,34 @@
 		const dom = (editor as any).view?.dom;
 		if (dom) dom.addEventListener('keydown', handleKeydown);
 
+		// Listen to TipTap selection updates and notify parent via onSelectionChange
+		try {
+			if ((editor as any).on) {
+				(editor as any).on('selectionUpdate', handleSelectionChange);
+			}
+		} catch {
+			// if .on isn't available, we skip
+		}
+
 		// sync initial into bindable content (parent may not be bound yet)
 		content = deepClone(initial);
+
+		// fire an initial selection update so parent can reflect initial cursor state
+		setTimeout(() => {
+			handleSelectionChange();
+		}, 0);
 
 		return () => {
 			if (editor) {
 				const dom = (editor as any).view?.dom;
 				if (dom) dom.removeEventListener('keydown', handleKeydown);
+				try {
+					if ((editor as any).off) {
+						(editor as any).off('selectionUpdate', handleSelectionChange);
+					}
+				} catch {
+					/* ignore */
+				}
 				editor.destroy();
 				editor = null;
 			}
@@ -149,6 +194,13 @@
 		if (editor) {
 			const dom = (editor as any).view?.dom;
 			if (dom) dom.removeEventListener('keydown', handleKeydown);
+			try {
+				if ((editor as any).off) {
+					(editor as any).off('selectionUpdate', handleSelectionChange);
+				}
+			} catch {
+				/* ignore */
+			}
 			editor.destroy();
 			editor = null;
 		}
@@ -174,8 +226,17 @@
 	 * Imperative API (exports)
 	 */
 
-	export function focusEditor() {
+	export function focusEditor(position?: number | { blockIndex: number; offset: number }) {
 		if (!editor) return;
+		// If a position is provided, set the cursor before focusing.
+		if (position !== undefined && position !== null) {
+			try {
+				// setCursor is exported below; calling it will compute and set selection.
+				setCursor(position as any);
+			} catch {
+				// ignore any errors setting cursor
+			}
+		}
 		editor.commands.focus();
 	}
 
