@@ -146,6 +146,11 @@
 	display: inline-block;
 }
 
+/* apply underline and blue color to links that are nested children of tiptap class */
+.tiptap a {
+	@apply hover:cursor-pointer text-gray-400 underline;
+}
+
 /*html,
 body {
 	position: fixed;

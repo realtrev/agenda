@@ -37,6 +37,11 @@
 		"vite": "^7.2.6"
 	},
 	"dependencies": {
+		"@tiptap/core": "^3.17.1",
+		"@tiptap/extension-bold": "^3.17.1",
+		"@tiptap/extension-link": "^3.17.1",
+		"@tiptap/extension-underline": "^3.17.1",
+		"@tiptap/starter-kit": "^3.17.1",
 		"lucide-svelte": "^0.562.0"
 	}
 }
