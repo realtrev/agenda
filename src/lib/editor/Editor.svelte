@@ -259,7 +259,7 @@
 		const doc = editor.state.doc;
 
 		function computePosForBlockOffset(blockIndex: number, offset: number) {
-			let pos = 1;
+			let pos = 0;
 			for (let i = 0; i < blockIndex && i < doc.childCount; i++) pos += doc.child(i).nodeSize;
 			if (blockIndex >= doc.childCount) return doc.content.size;
 			const block = doc.child(blockIndex);
