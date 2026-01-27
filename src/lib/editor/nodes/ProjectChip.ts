@@ -47,6 +47,19 @@ export default Node.create({
 		return ['span', attrs, label];
 	},
 
+	// When the editor's content is converted to plain text (e.g. copy/paste to a plain-text target),
+	// provide a human-friendly representation using the resolved project name.
+	renderText({ node }: any) {
+		const projectId: string | null = node.attrs?.projectId ?? null;
+		console.log(projectId);
+		try {
+			const name = getProjectName(projectId);
+			return name ? `#${name}` : projectId ? `#${projectId}` : '#Project';
+		} catch {
+			return projectId ? `#${projectId}` : '#Project';
+		}
+	},
+
 	addNodeView() {
 		return ({ node }) => {
 			let projectId: string | null = node.attrs?.projectId ?? null;
@@ -103,10 +116,10 @@ export default Node.create({
 					// prevent the editor from handling clicks on the chip (so clicks can open pickers)
 					return event.type === 'click';
 				},
-				ignoreMutation() {
-					// we don't want ProseMirror to attempt to reconcile mutations inside our chip DOM
-					return true;
-				},
+				// ignoreMutation() {
+				// 	// we don't want ProseMirror to attempt to reconcile mutations inside our chip DOM
+				// 	return true;
+				// },
 				destroy() {
 					try {
 						unsub && unsub();

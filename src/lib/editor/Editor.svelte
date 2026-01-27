@@ -61,37 +61,6 @@
 		return JSON.parse(JSON.stringify(v));
 	}
 
-	// Migrate legacy `atomic` nodes to the new `projectChip` node shape.
-	// This walks a ProseMirror/TipTap JSON doc and replaces any node with
-	// `type === 'atomic'` with `type === 'projectChip'`, mapping attrs:
-	// projectId <- (attrs.projectId || attrs.id)
-	function migrateAtomicToProjectChip(doc: any) {
-		if (!doc) return doc;
-		// Work on a clone to avoid mutating the original object owned by other proxies
-		const cloned = JSON.parse(JSON.stringify(doc));
-
-		function walk(node: any) {
-			if (!node || !node.content || !Array.isArray(node.content)) return;
-			for (let i = 0; i < node.content.length; i++) {
-				const child = node.content[i];
-				if (!child) continue;
-				// If this is an atomic legacy node, replace it with projectChip
-				if (child.type === 'atomic') {
-					const pid = (child.attrs && (child.attrs.projectId ?? child.attrs.id)) ?? null;
-					// Replace with the new node shape
-					node.content[i] = { type: 'projectChip', attrs: { projectId: pid } };
-				} else {
-					// Recurse into children
-					walk(child);
-				}
-			}
-		}
-
-		// Top-level doc may have content array
-		walk(cloned);
-		return cloned;
-	}
-
 	// Editor update handler: debounced update of content and onChange callback
 	function handleEditorUpdate() {
 		if (!editor) return;
@@ -254,9 +223,7 @@
 		window.addEventListener('selectionchange', domSelHandler);
 
 		// Sync initial content back into bindable `content`
-		// Ensure any legacy `atomic` nodes in the incoming initial JSON are migrated
-		// to the modern `projectChip` node before exposing to the parent bindable `content`.
-		content = deepClone(migrateAtomicToProjectChip(initial));
+		content = initial;
 
 		// emit initial selection state shortly after mount
 		setTimeout(() => {
@@ -299,11 +266,7 @@
 		try {
 			const current = editor.getJSON();
 			if (current && JSON.stringify(current) !== JSON.stringify(content)) {
-				// Migrate any legacy `atomic` nodes in the incoming content before
-				// passing it to TipTap's setContent so the editor always uses the
-				// canonical `projectChip` node.
-				const migrated = migrateAtomicToProjectChip(deepClone(content));
-				(editor.commands as any).setContent(migrated, false as any);
+				(editor.commands as any).setContent(current, false as any);
 			}
 		} catch {
 			// ignore

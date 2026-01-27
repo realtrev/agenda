@@ -284,6 +284,10 @@
 				>Place Cursor at block/offset</button
 			>
 			<button onclick={updateSelInfo}>Get Selection A</button>
+			<!-- Demo helper: insert a ProjectChip node at the caret in Editor A -->
+			<button onclick={() => editorA?.insertProjectChip?.('43987466557')}
+				>Insert Project Chip (43987466557)</button
+			>
 		</div>
 
 		<div style="margin-top:8px;">
