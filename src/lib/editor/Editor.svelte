@@ -119,18 +119,31 @@
 			running += block.nodeSize;
 
 			if (pos >= blockStart && pos <= blockEnd) {
-				let accum = 0;
-				let innerPos = Math.max(0, pos - blockStart - 1);
+				// Position relative to start of block content
+				// blockStart is the first content position (offset 0)
+				let innerPos = pos - blockStart;
 
+				// If position is before block content, return offset 0
+				if (innerPos < 0) {
+					return { blockIndex: i, offset: 0 };
+				}
+
+				// Walk through child nodes to find the correct offset
+				// (handles mixed text and inline nodes like ProjectChip)
+				let accum = 0;
 				for (let j = 0; j < block.childCount; j++) {
 					const child = block.child(j);
 					const childLen = _childTextLength(child);
-					if (innerPos <= accum + childLen - 1) {
-						return { blockIndex: i, offset: accum + Math.max(0, innerPos - accum) };
+
+					// Check if position falls within or before this child
+					if (innerPos < accum + childLen) {
+						// innerPos already represents the correct offset
+						return { blockIndex: i, offset: innerPos };
 					}
 					accum += childLen;
 				}
 
+				// Position is at or after end of block content
 				return { blockIndex: i, offset: accum };
 			}
 		}
@@ -339,8 +352,12 @@
 		if (!editor) return null;
 		const sel = editor.state.selection;
 
-		// Convert from ProseMirror 1-based to 0-based positions
-		const selection = { from: sel.from - 1, to: sel.to - 1, empty: sel.empty };
+		// Convert from ProseMirror 1-based to 0-based positions (clamped to 0)
+		const selection = {
+			from: Math.max(0, sel.from - 1),
+			to: Math.max(0, sel.to - 1),
+			empty: sel.empty
+		};
 		const start = computeBlockOffsetForAbsolutePos(sel.from);
 		const end = computeBlockOffsetForAbsolutePos(sel.to);
 		const selectedText = sel.empty ? '' : getSelectedTextWithCustomNodes(sel.from, sel.to);
