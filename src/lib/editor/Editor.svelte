@@ -173,21 +173,30 @@
 	function computeAbsolutePosForBlockOffset(blockIndex: number, offset: number) {
 		if (!editor) return 1;
 		const doc = editor.state.doc;
-		let pos = 0; // position before first child of doc
+		// sanitize inputs to avoid undefined/NaN and out-of-range indices
+		const numBlocks = doc ? doc.childCount : 0;
+		let bi = Number(blockIndex);
+		if (!Number.isFinite(bi) || bi < 0) bi = 0;
+		// clamp block index to valid range
+		bi = Math.min(bi, Math.max(0, numBlocks - 1));
+		let ofs = Number(offset);
+		if (!Number.isFinite(ofs) || ofs < 0) ofs = 0;
+		let pos = 1; // absolute position of the first content position in the doc
 		// add sizes of preceding blocks
-		for (let i = 0; i < blockIndex && i < doc.childCount; i++) pos += doc.child(i).nodeSize;
-		if (blockIndex >= doc.childCount) return doc.content.size;
-		const block = doc.child(blockIndex);
+		for (let i = 0; i < bi && i < doc.childCount; i++) pos += doc.child(i).nodeSize;
+		if (bi >= doc.childCount) return doc.content.size;
+		const block = doc.child(bi);
+		if (!block) return doc.content.size;
 		// accumulate character counts across inline children
 		let accum = 0;
 		for (let j = 0; j < block.childCount; j++) {
 			const child = block.child(j);
 			const childLen = _childTextLength(child);
 			// If the desired offset falls within this child, compute within-child position
-			if (accum + childLen >= offset) {
-				const within = Math.max(0, offset - accum);
-				// absolute position: block start (pos) + 1 for inside node + accum + within
-				return pos + 1 + accum + within;
+			if (accum + childLen >= ofs) {
+				const within = Math.max(0, Math.min(childLen, ofs - accum));
+				// absolute position: block start (pos) + accum + within
+				return pos + accum + within;
 			}
 			accum += childLen;
 		}
@@ -410,6 +419,28 @@
 		pos: number | { blockIndex: number; offset: number }
 	) {
 		return splitDocumentAt(doc, pos);
+	}
+
+	// Selection helpers
+	/**
+	 * Return true if the current selection is a collapsed cursor at the start of the document.
+	 */
+	export function isCursorAtStart() {
+		if (!editor) return false;
+		const sel = editor.state.selection;
+		// ProseMirror document start is position 1; require collapsed selection at/before start
+		return sel.empty && sel.from <= 1;
+	}
+
+	/**
+	 * Return true if the current selection is a collapsed cursor at the end of the document.
+	 */
+	export function isCursorAtEnd() {
+		if (!editor) return false;
+		const sel = editor.state.selection;
+		const docSize = editor.state.doc.content.size;
+		// Collapsed selection at or beyond end position
+		return sel.empty && sel.to >= docSize;
 	}
 </script>
 
