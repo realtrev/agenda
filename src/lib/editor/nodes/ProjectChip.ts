@@ -1,10 +1,22 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import { getProjectName, projects as projectsStore } from '$lib/stores/projects';
 
+// Resolve a display label using the live store first, then a baked-in projectName attr, then the id itself.
+function resolveLabel(projectId: string | null, projectName?: string | null) {
+	try {
+		const name = getProjectName(projectId);
+		if (name) return `#${name}`;
+	} catch {
+		// ignore store lookup errors; fall through
+	}
+	if (projectName && projectName.length > 0) return `#${projectName}`;
+	return projectId ? `#${projectId}` : '#Project';
+}
+
 /**
  * ProjectChip node
  *
- * - Stores `projectId` as the only attribute.
+ * - Stores `projectId` (required) and `projectName` (optional baked-in fallback for clipboard/SSR).
  * - Renders a rounded blue chip that displays `#Project Name` by resolving the id via the projects store.
  * - Uses a NodeView so the label updates reactively when project names change.
  *
@@ -23,7 +35,22 @@ export default Node.create({
 
 	addAttributes() {
 		return {
-			projectId: { default: null }
+			projectId: {
+				default: null,
+				parseHTML: (element) => element.getAttribute('data-project-id') ?? element.getAttribute('projectid'),
+				renderHTML: (attributes) => {
+					if (!attributes.projectId) return {};
+					return { 'data-project-id': attributes.projectId };
+				}
+			},
+			projectName: {
+				default: null,
+				parseHTML: (element) => element.getAttribute('data-project-name'),
+				renderHTML: (attributes) => {
+					if (!attributes.projectName) return {};
+					return { 'data-project-name': attributes.projectName };
+				}
+			}
 		};
 	},
 
@@ -33,17 +60,19 @@ export default Node.create({
 	},
 
 	renderHTML({ HTMLAttributes }: any) {
+		const projectId = HTMLAttributes?.projectId ?? null;
+		const projectName = HTMLAttributes?.projectName ?? null;
+		const label = resolveLabel(projectId, projectName);
+		const nameAttr = label.startsWith('#') ? label.slice(1) : label;
 		const attrs = mergeAttributes(
 			{
 				'data-project-chip': 'true',
 				class: 'project-chip'
 			},
-			HTMLAttributes
+			HTMLAttributes,
+			projectId ? { 'data-project-id': projectId } : {},
+			{ 'data-project-name': nameAttr }
 		);
-
-		// fallback label uses the id so something is visible without NodeView
-		const label =
-			HTMLAttributes && HTMLAttributes.projectId ? `#${HTMLAttributes.projectId}` : '#Project';
 		return ['span', attrs, label];
 	},
 
@@ -51,43 +80,33 @@ export default Node.create({
 	// provide a human-friendly representation using the resolved project name.
 	renderText({ node }: any) {
 		const projectId: string | null = node.attrs?.projectId ?? null;
-		console.log(projectId);
-		try {
-			const name = getProjectName(projectId);
-			return name ? `#${name}` : projectId ? `#${projectId}` : '#Project';
-		} catch {
-			return projectId ? `#${projectId}` : '#Project';
-		}
+		const projectName: string | null = node.attrs?.projectName ?? null;
+		return resolveLabel(projectId, projectName);
 	},
 
 	addNodeView() {
 		return ({ node }) => {
 			let projectId: string | null = node.attrs?.projectId ?? null;
+			let projectName: string | null = node.attrs?.projectName ?? null;
 
 			// Create the chip element
 			const span = document.createElement('span');
 			span.setAttribute('data-project-chip', 'true');
 			if (projectId) span.setAttribute('data-project-id', String(projectId));
+			if (projectName) span.setAttribute('data-project-name', String(projectName));
 			span.className = 'project-chip';
-			// Minimal inline styles to ensure visibility if CSS hasn't loaded
 
-			function setLabel(id: string | null) {
-				try {
-					const name = getProjectName(id);
-					span.textContent = name ? `#${name}` : id ? `#${id}` : '#Project';
-				} catch {
-					span.textContent = id ? `#${id}` : '#Project';
-				}
-			}
+			const setLabel = () => {
+				span.textContent = resolveLabel(projectId, projectName);
+			};
 
-			setLabel(projectId);
+			setLabel();
 
 			// Subscribe so renames/changes update the chip live
 			let unsub: (() => void) | null = null;
 			try {
 				unsub = projectsStore.subscribe(() => {
-					// only update text if project name changed (setLabel will handle it)
-					setLabel(projectId);
+					setLabel();
 				});
 			} catch {
 				unsub = null;
@@ -99,27 +118,30 @@ export default Node.create({
 				update(updatedNode: any) {
 					try {
 						const newId = updatedNode.attrs?.projectId ?? null;
+						const newName = updatedNode.attrs?.projectName ?? null;
+						let changed = false;
 						if (newId !== projectId) {
 							projectId = newId;
+							changed = true;
 							if (projectId) span.setAttribute('data-project-id', String(projectId));
 							else span.removeAttribute('data-project-id');
-							setLabel(projectId);
 						}
+						if (newName !== projectName) {
+							projectName = newName;
+							changed = true;
+							if (projectName) span.setAttribute('data-project-name', String(projectName));
+							else span.removeAttribute('data-project-name');
+						}
+						if (changed) setLabel();
 					} catch {
 						// ignore errors during update
 					}
 					// keep the node view alive; return true to indicate successful update
 					return true;
 				},
-				// Let clicks be handled by the chip (you can attach click listeners here if needed)
 				stopEvent(event: Event) {
-					// prevent the editor from handling clicks on the chip (so clicks can open pickers)
 					return event.type === 'click';
 				},
-				// ignoreMutation() {
-				// 	// we don't want ProseMirror to attempt to reconcile mutations inside our chip DOM
-				// 	return true;
-				// },
 				destroy() {
 					try {
 						unsub && unsub();
