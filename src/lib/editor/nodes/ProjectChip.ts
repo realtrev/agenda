@@ -77,11 +77,20 @@ export default Node.create({
 	},
 
 	// When the editor's content is converted to plain text (e.g. copy/paste to a plain-text target),
-	// provide a human-friendly representation using the resolved project name.
+	// provide a human-friendly representation. Try live store first (accurate), fallback to baked projectName attr.
 	renderText({ node }: any) {
 		const projectId: string | null = node.attrs?.projectId ?? null;
 		const projectName: string | null = node.attrs?.projectName ?? null;
-		return resolveLabel(projectId, projectName);
+		// Try store first for live accuracy, fallback to projectName attr for clipboard pastes
+		try {
+			const storedName = getProjectName(projectId);
+			if (storedName) return `#${storedName}`;
+		} catch {
+			// ignore store errors
+		}
+		// Fallback to projectName attr (set during renderHTML for clipboard preservation)
+		if (projectName) return `#${projectName}`;
+		return projectId ? `#${projectId}` : '#Project';
 	},
 
 	addNodeView() {
