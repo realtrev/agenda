@@ -123,8 +123,8 @@
 			return;
 		}
 		try {
-			const payload = editorA.getCursor?.();
-			// getCursor() returns { selection, start, end, selectedText }
+			const payload = editorA.cursor?.get?.();
+			// cursor.get() returns { selection, start, end, selectedText }
 			// assign a deep clone so Svelte's proxy notices changes reliably
 			selInfo = payload ? JSON.parse(JSON.stringify(payload)) : null;
 		} catch (e) {
@@ -135,8 +135,8 @@
 
 	// Place cursor at a block/offset in editor A and focus it
 	function placeCursorA() {
-		editorA?.setCursor?.({ blockIndex: 0, offset: 0 });
-		editorA?.focusEditor?.();
+		editorA?.cursor?.set?.({ blockIndex: 0, offset: 0 });
+		editorA?.cursor?.focus?.();
 		// update selection info right after moving the cursor
 		setTimeout(updateSelInfo, 50);
 	}
@@ -144,12 +144,12 @@
 	// Place cursor at the blockIndex/offset inputs and focus editor A
 	function placeCursorAtBlockOffset() {
 		const pos = { blockIndex: Number(blockIndex), offset: Number(offset) };
-		// Editor's focusEditor accepts an optional position and will call setCursor internally
-		if (editorA?.focusEditor) {
-			editorA.focusEditor(pos);
-		} else if (editorA?.setCursor) {
-			editorA.setCursor(pos);
-			editorA?.focusEditor?.();
+		// Editor's cursor.focus accepts an optional position and will call set internally
+		if (editorA?.cursor?.focus) {
+			editorA.cursor.focus(pos);
+		} else if (editorA?.cursor?.set) {
+			editorA.cursor.set(pos);
+			editorA?.cursor?.focus?.();
 		}
 		// update selection info shortly after moving the cursor
 		setTimeout(updateSelInfo, 80);
@@ -248,7 +248,7 @@
 
 	// A small helper to focus merged editor
 	function focusMerged() {
-		editorMerged?.focusEditor?.();
+		editorMerged?.cursor?.focus?.();
 	}
 </script>
 
@@ -271,16 +271,16 @@
 		<div class="controls">
 			<button onclick={appendAtomicToA}>Append Atomic to A</button>
 			<button onclick={splitAAtFirstWord}>Split A at offset 5</button>
-			<button onclick={() => editorA?.focusEditor?.()}>Focus A</button>
+			<button onclick={() => editorA?.cursor?.focus?.()}>Focus A</button>
 			<button onclick={placeCursorA}>Place Cursor at start A</button>
 			<button
 				onclick={() =>
-					editorA?.focusEditor?.({ blockIndex: Number(blockIndex), offset: Number(offset) })}
+					editorA?.cursor?.focus?.({ blockIndex: Number(blockIndex), offset: Number(offset) })}
 				>Place Cursor at block/offset</button
 			>
 			<button onclick={updateSelInfo}>Get Selection A</button>
 			<!-- Demo helper: insert a ProjectChip node at the caret in Editor A -->
-			<button onclick={() => editorA?.insertProjectChip?.('43987466557')}
+			<button onclick={() => editorA?.content?.insertProjectChip?.('43987466557')}
 				>Insert Project Chip (43987466557)</button
 			>
 		</div>
@@ -303,7 +303,7 @@
 		<div class="controls">
 			<button onclick={mergeAToB}>Merge A → B</button>
 			<button onclick={mergeBToA}>Merge B → A</button>
-			<button onclick={() => editorB?.focusEditor?.()}>Focus B</button>
+			<button onclick={() => editorB?.cursor?.focus?.()}>Focus B</button>
 		</div>
 
 		<div style="margin-top:8px;">

@@ -35,6 +35,7 @@
 	import CharacterCount from '@tiptap/extension-character-count';
 	import ProjectChip, { resolveLabel } from './nodes/ProjectChip';
 	import { mergeDocuments, splitDocumentAt } from './tools';
+	import { createEditorAPI, type EditorAPI } from './api';
 
 	// ============================================================================
 	// Props & State
@@ -55,6 +56,9 @@
 	let editor: TipTapEditor | null = null;
 	let editorElement: HTMLElement | null = null;
 	let _debounceTimer: number | null = null;
+	let cursor: any = null;
+	let contentAPI: any = null;
+	let document: any = null;
 
 	// ============================================================================
 	// Utility Functions
@@ -278,6 +282,18 @@
 			onCreate: handleEditorUpdate
 		});
 
+		// Initialize the API subsections
+		const api = createEditorAPI(
+			editor,
+			characterLimit,
+			getSelectedTextWithCustomNodes,
+			computeBlockOffsetForAbsolutePos,
+			computeAbsolutePosForBlockOffset
+		);
+		cursor = api.cursor;
+		contentAPI = api.content;
+		document = api.document;
+
 		const dom = (editor as any).view?.dom;
 		if (dom) dom.addEventListener('keydown', handleKeydown);
 
@@ -311,6 +327,9 @@
 				window.removeEventListener('selectionchange', domSelHandler);
 				editor.destroy();
 				editor = null;
+				cursor = null;
+				contentAPI = null;
+				document = null;
 			}
 		};
 	});
@@ -345,138 +364,18 @@
 	// ============================================================================
 
 	/**
-	 * Focus the editor, optionally positioning cursor at specified location.
-	 * @param position - Absolute position (number) or {blockIndex, offset}
+	 * Organized editor API with subsections:
+	 * - editor.cursor.focus(), editor.cursor.get(), editor.cursor.set(), etc.
+	 * - editor.content.insertProjectChip(), editor.content.insertText(), etc.
+	 * - editor.document.getJSON(), editor.document.getCharacterCount(), etc.
+	 *
+	 * Usage in components:
+	 * <Editor bind:this={editor} bind:content={doc} />
+	 * editor.cursor.focus()
+	 * editor.document.getJSON()
+	 * editor.content.insertProjectChip('id')
 	 */
-	export function focusEditor(position?: number | { blockIndex: number; offset: number }) {
-		if (!editor) return;
-		if (position !== undefined && position !== null) {
-			try {
-				setCursor(position as any);
-			} catch {
-				// Ignore
-			}
-		}
-		editor.commands.focus();
-	}
-
-	/**
-	 * Get current cursor/selection information.
-	 * Returns: { selection, start, end, selectedText }
-	 * - selection: { from, to, empty } (0-based positions)
-	 * - start/end: { blockIndex, offset }
-	 * - selectedText: String including custom node labels
-	 */
-	export function getCursor() {
-		if (!editor) return null;
-		const sel = editor.state.selection;
-
-		// Convert from ProseMirror 1-based to 0-based positions (clamped to 0)
-		const selection = {
-			from: Math.max(0, sel.from - 1),
-			to: Math.max(0, sel.to - 1),
-			empty: sel.empty
-		};
-		const start = computeBlockOffsetForAbsolutePos(sel.from);
-		const end = computeBlockOffsetForAbsolutePos(sel.to);
-		const selectedText = sel.empty ? '' : getSelectedTextWithCustomNodes(sel.from, sel.to);
-
-		return { selection, start, end, selectedText };
-	}
-
-	/**
-	 * Set cursor position.
-	 * @param position - Absolute position (number) or {blockIndex, offset}
-	 */
-	export function setCursor(position: number | { blockIndex: number; offset: number }) {
-		if (!editor) return;
-		const doc = editor.state.doc;
-
-		let targetPos = 1;
-		if (typeof position === 'number') {
-			targetPos = computeAbsolutePosForBlockOffset(position, 0);
-		} else {
-			const { blockIndex, offset } = position;
-			targetPos = computeAbsolutePosForBlockOffset(blockIndex, offset);
-		}
-
-		targetPos = Math.max(1, Math.min(targetPos, doc.content.size));
-
-		try {
-			(editor.commands as any).setTextSelection(targetPos);
-		} catch {
-			// Fallback to just focusing
-		}
-
-		editor.commands.focus();
-	}
-
-	/**
-	 * Insert a ProjectChip node at current cursor position.
-	 * @param projectId - ID of the project
-	 * @returns true if successful
-	 */
-	export function insertProjectChip(projectId: string): boolean {
-		if (!editor) return false;
-		try {
-			(editor.commands as any).insertContent({ type: 'projectChip', attrs: { projectId } });
-			return true;
-		} catch {
-			return false;
-		}
-	}
-
-	/**
-	 * Merge two documents (delegates to tools.ts).
-	 */
-	export function mergeDocs(a: any, b: any) {
-		return mergeDocuments(a, b);
-	}
-
-	/**
-	 * Split document at position (delegates to tools.ts).
-	 */
-	export function splitDocAtPosition(doc: any, pos: number | { blockIndex: number; offset: number }) {
-		return splitDocumentAt(doc, pos);
-	}
-
-	/**
-	 * Check if cursor is at the start of the document.
-	 */
-	export function isCursorAtStart(): boolean {
-		if (!editor) return false;
-		const sel = editor.state.selection;
-		return sel.empty && sel.from <= 1;
-	}
-
-	/**
-	 * Check if cursor is at the end of the document.
-	 */
-	export function isCursorAtEnd(): boolean {
-		if (!editor) return false;
-		const sel = editor.state.selection;
-		return sel.empty && sel.to >= editor.state.doc.content.size;
-	}
-
-	/**
-	 * Get character count information.
-	 * @returns { characters, words, limit, percentage } or null if editor not ready
-	 */
-	export function getCharacterCount(): { characters: number; words: number; limit: number | null; percentage: number } | null {
-		if (!editor) return null;
-		try {
-			const storage = (editor as any).storage?.characterCount;
-			if (!storage) return null;
-			return {
-				characters: storage.characters?.() || 0,
-				words: storage.words?.() || 0,
-				limit: characterLimit > 0 ? characterLimit : null,
-				percentage: characterLimit > 0 ? Math.round((storage.characters?.() || 0) / characterLimit * 100) : 0
-			};
-		} catch {
-			return null;
-		}
-	}
+	export { cursor, contentAPI as content, document }
 </script>
 
 <div class="editor-wrapper" bind:this={editorElement} aria-label="Rich text editor"></div>
