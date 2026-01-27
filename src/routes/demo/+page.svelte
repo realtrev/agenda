@@ -11,7 +11,7 @@
 				type: 'paragraph',
 				content: [
 					{ type: 'text', text: 'Hello ' },
-					{ type: 'atomic', attrs: { projectId: '43987466557' } },
+					{ type: 'projectChip', attrs: { projectId: '43987466557' } },
 					{ type: 'text', text: ' Bold', marks: [{ type: 'bold' }] },
 					{ type: 'text', text: ' world. ' },
 					{

@@ -151,6 +151,10 @@
 	@apply text-gray-400 underline hover:cursor-pointer;
 }
 
+.tiptap {
+	@apply outline-none;
+}
+
 /* Project chip styling for atomic nodes (global so TipTap nodeviews receive styles) */
 .project-chip {
 	@apply inline-flex items-center rounded-sm bg-secondary px-[4px] py-[2px] text-sm font-medium text-secondary-foreground/90 not-italic transition;
