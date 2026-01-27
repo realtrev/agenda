@@ -146,8 +146,17 @@
 		if (!editor) return '';
 		const doc = editor.state.doc;
 		let result = '';
+		let isFirstBlock = true;
 
 		doc.nodesBetween(from, to, (node: any, pos: number) => {
+			// Add newline between block nodes (paragraphs, headings, etc.)
+			if (node.isBlock && node.type.name !== 'doc') {
+				if (!isFirstBlock && result.length > 0) {
+					result += '\n';
+				}
+				isFirstBlock = false;
+			}
+
 			if (node.isText) {
 				// Extract the portion of text within selection bounds
 				const nodeFrom = Math.max(from, pos);
