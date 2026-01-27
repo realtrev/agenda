@@ -20,7 +20,13 @@
 
 	import { onMount, onDestroy } from 'svelte';
 	import { Editor as TipTapEditor } from '@tiptap/core';
-	import StarterKit from '@tiptap/starter-kit';
+	import Document from '@tiptap/extension-document';
+	import Paragraph from '@tiptap/extension-paragraph';
+	import Text from '@tiptap/extension-text';
+	import HardBreak from '@tiptap/extension-hard-break';
+	import History from '@tiptap/extension-history';
+	import Gapcursor from '@tiptap/extension-gapcursor';
+	import Dropcursor from '@tiptap/extension-dropcursor';
 	import Link from '@tiptap/extension-link';
 	import Bold from '@tiptap/extension-bold';
 	import Underline from '@tiptap/extension-underline';
@@ -247,7 +253,13 @@
 		editor = new TipTapEditor({
 			element: editorElement as HTMLElement,
 			extensions: [
-				StarterKit.configure({}),
+				Document,
+				Paragraph,
+				Text,
+				HardBreak,
+				History,
+				Gapcursor,
+				Dropcursor,
 				Bold,
 				Underline,
 				Link.configure({ openOnClick: true }),
