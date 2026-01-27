@@ -123,15 +123,10 @@
 			return;
 		}
 		try {
-			const cursor = editorA.getCursor?.();
-			const selectedText = editorA.getSelectedText?.();
-			// Create a plain serializable object (avoid passing editor internals)
-			const info = {
-				cursor: cursor ? { from: cursor.from, to: cursor.to, empty: cursor.empty } : null,
-				selectedText: typeof selectedText === 'string' ? selectedText : ''
-			};
+			const payload = editorA.getCursor?.();
+			// getCursor() returns { selection, start, end, selectedText }
 			// assign a deep clone so Svelte's proxy notices changes reliably
-			selInfo = JSON.parse(JSON.stringify(info));
+			selInfo = payload ? JSON.parse(JSON.stringify(payload)) : null;
 		} catch (e) {
 			// if anything fails, set to null to avoid stale references
 			selInfo = null;

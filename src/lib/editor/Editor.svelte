@@ -34,7 +34,7 @@
 	import Bold from '@tiptap/extension-bold';
 	import Underline from '@tiptap/extension-underline';
 	// ProjectChip node (NodeView implementation)
-	import ProjectChip from './nodes/ProjectChip';
+	import ProjectChip, { resolveLabel } from './nodes/ProjectChip';
 
 	// Pure helpers
 	import { mergeDocuments, splitDocumentAt } from './tools';
@@ -166,17 +166,38 @@
 		return { blockIndex: Math.max(0, doc.childCount - 1), offset: 0 };
 	}
 
-	// Notify parent of selection changes
+	// Extract selected text including custom node text (e.g., ProjectChip labels)
+	function getSelectedTextWithCustomNodes(from: number, to: number): string {
+		if (!editor) return '';
+		const doc = editor.state.doc;
+		let result = '';
+
+		doc.nodesBetween(from, to, (node: any, pos: number) => {
+			// For text nodes, include the portion within selection
+			if (node.isText) {
+				const nodeFrom = Math.max(from, pos);
+				const nodeTo = Math.min(to, pos + node.nodeSize);
+				if (nodeTo > nodeFrom) {
+					result += node.text?.slice(nodeFrom - pos, nodeTo - pos) ?? '';
+				}
+			}
+			// For projectChip nodes, use resolveLabel to render the label
+			else if (node.type.name === 'projectChip' && pos >= from && pos < to) {
+				const projectId = node.attrs?.projectId ?? null;
+				const projectName = node.attrs?.projectName ?? null;
+				result += resolveLabel(projectId, projectName);
+			}
+		});
+
+		return result;
+	}
+
+	// Notify parent of selection changes by delegating to getCursor (single source of truth)
 	function handleSelectionChange() {
 		if (!editor) return;
 		try {
-			const sel = editor.state.selection;
-			const cursor = { from: sel.from, to: sel.to, empty: sel.empty };
-			const start = computeBlockOffsetForAbsolutePos(cursor.from);
-			const end = computeBlockOffsetForAbsolutePos(cursor.to);
-			const selectedText = sel.empty ? '' : editor.state.doc.textBetween(sel.from, sel.to, '\n');
-			const payload = { selection: cursor, start, end, selectedText };
-			if (typeof onSelectionChange === 'function') {
+			const payload = getCursor();
+			if (payload && typeof onSelectionChange === 'function') {
 				try {
 					onSelectionChange(payload);
 				} catch {
@@ -292,18 +313,14 @@
 	export function getCursor() {
 		if (!editor) return null;
 		const sel = editor.state.selection;
-		const cursor = { from: sel.from, to: sel.to, empty: sel.empty };
-		const start = computeBlockOffsetForAbsolutePos(cursor.from);
-		const end = computeBlockOffsetForAbsolutePos(cursor.to);
-		return { ...cursor, start, end };
+		// Convert from ProseMirror 1-based to 0-based positions
+		const selection = { from: sel.from - 1, to: sel.to - 1, empty: sel.empty };
+		const start = computeBlockOffsetForAbsolutePos(sel.from);
+		const end = computeBlockOffsetForAbsolutePos(sel.to);
+		const selectedText = sel.empty ? '' : getSelectedTextWithCustomNodes(sel.from, sel.to);
+		return { selection, start, end, selectedText };
 	}
 
-	export function getSelectedText() {
-		if (!editor) return '';
-		const sel = editor.state.selection;
-		if (sel.empty) return '';
-		return editor.state.doc.textBetween(sel.from, sel.to, '\n');
-	}
 
 	export function setCursor(position: number | { blockIndex: number; offset: number }) {
 		if (!editor) return;

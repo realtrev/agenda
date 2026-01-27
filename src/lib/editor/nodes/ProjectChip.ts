@@ -2,7 +2,7 @@ import { Node, mergeAttributes } from '@tiptap/core';
 import { getProjectName, projects as projectsStore } from '$lib/stores/projects';
 
 // Resolve a display label using the live store first, then a baked-in projectName attr, then the id itself.
-function resolveLabel(projectId: string | null, projectName?: string | null) {
+export function resolveLabel(projectId: string | null, projectName?: string | null) {
 	try {
 		const name = getProjectName(projectId);
 		if (name) return `#${name}`;
