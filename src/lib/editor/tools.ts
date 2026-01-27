@@ -118,7 +118,7 @@ function normalizeInlineTextNodes(doc: PMDoc): void {
 
 	doc.content = doc.content.map((block) => {
 		const normalized = deepClone(block);
-		
+
 		if (!Array.isArray(normalized.content)) return normalized;
 
 		// Merge adjacent compatible nodes
@@ -163,12 +163,12 @@ function normalizeInlineTextNodes(doc: PMDoc): void {
 
 /**
  * Merge two documents into a single document.
- * 
+ *
  * Rules:
  * - Concatenates top-level blocks
  * - If last block of A and first block of B have same type/attrs, merges their content
  * - Normalizes adjacent text nodes with identical marks
- * 
+ *
  * @param a First document (or null)
  * @param b Second document (or null)
  * @returns Merged document
@@ -309,8 +309,8 @@ function splitBlockAtOffset(block: PMNode, offset: number): [PMNode, PMNode] {
 				const leftText = createTextNode(text.slice(0, remaining));
 				const rightText = createTextNode(text.slice(remaining));
 
-				if (leftText.text.length > 0) leftContent.push(leftText);
-				if (rightText.text.length > 0) rightContent.push(rightText);
+				if (leftText?.text?.length && leftText.text.length > 0) leftContent.push(leftText);
+				if (rightText?.text?.length && rightText.text.length > 0) rightContent.push(rightText);
 				remaining = 0;
 			}
 		} else {
@@ -329,7 +329,7 @@ function splitBlockAtOffset(block: PMNode, offset: number): [PMNode, PMNode] {
 
 /**
  * Split a document at the specified position.
- * 
+ *
  * @param doc Document to split
  * @param pos Position: number (absolute) or {blockIndex, offset}
  * @returns {left, right} - Two new documents

@@ -2,6 +2,7 @@ import type { Editor as TipTapEditor } from '@tiptap/core';
 import { createCursorAPI, type CursorAPI } from './cursor';
 import { createContentAPI, type ContentAPI } from './content';
 import { createDocumentAPI, type DocumentAPI } from './document';
+import { getSelectedTextWithCustomNodes } from '../utils/selection';
 
 /**
  * Create the editor API subsections
@@ -11,16 +12,12 @@ import { createDocumentAPI, type DocumentAPI } from './document';
 export function createEditorAPI(
 	editor: TipTapEditor | null,
 	characterLimit: number = 0,
-	getSelectedTextWithCustomNodes: (from: number, to: number) => string,
-	computeBlockOffsetForAbsolutePos: (absPos: number) => { blockIndex: number; offset: number },
-	computeAbsolutePosForBlockOffset: (blockIndex: number, offset: number) => number
+	getSelectedTextWithCustomNodes_arg: (from: number, to: number) => string
 ) {
 	return {
 		cursor: createCursorAPI(
 			editor,
-			getSelectedTextWithCustomNodes,
-			computeBlockOffsetForAbsolutePos,
-			computeAbsolutePosForBlockOffset
+			getSelectedTextWithCustomNodes_arg
 		),
 		content: createContentAPI(editor),
 		document: createDocumentAPI(editor, characterLimit)

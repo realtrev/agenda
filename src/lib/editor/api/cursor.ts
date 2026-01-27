@@ -1,4 +1,5 @@
 import type { Editor as TipTapEditor } from '@tiptap/core';
+import { computeBlockOffsetForAbsolutePos, computeAbsolutePosForBlockOffset } from '../utils/position';
 
 export interface CursorInfo {
 	selection: { from: number; to: number; empty: boolean };
@@ -12,9 +13,7 @@ export interface CursorInfo {
  */
 export function createCursorAPI(
 	editor: TipTapEditor | null,
-	getSelectedTextWithCustomNodes: (from: number, to: number) => string,
-	computeBlockOffsetForAbsolutePos: (absPos: number) => { blockIndex: number; offset: number },
-	computeAbsolutePosForBlockOffset: (blockIndex: number, offset: number) => number
+	getSelectedTextWithCustomNodes: (from: number, to: number) => string
 ) {
 	return {
 		/**
@@ -50,8 +49,8 @@ export function createCursorAPI(
 				to: Math.max(0, sel.to - 1),
 				empty: sel.empty
 			};
-			const start = computeBlockOffsetForAbsolutePos(sel.from);
-			const end = computeBlockOffsetForAbsolutePos(sel.to);
+			const start = computeBlockOffsetForAbsolutePos(editor, sel.from);
+			const end = computeBlockOffsetForAbsolutePos(editor, sel.to);
 			const selectedText = sel.empty ? '' : getSelectedTextWithCustomNodes(sel.from, sel.to);
 
 			return { selection, start, end, selectedText };
@@ -67,10 +66,10 @@ export function createCursorAPI(
 
 			let targetPos = 1;
 			if (typeof position === 'number') {
-				targetPos = computeAbsolutePosForBlockOffset(position, 0);
+				targetPos = computeAbsolutePosForBlockOffset(editor, position, 0);
 			} else {
 				const { blockIndex, offset } = position;
-				targetPos = computeAbsolutePosForBlockOffset(blockIndex, offset);
+				targetPos = computeAbsolutePosForBlockOffset(editor, blockIndex, offset);
 			}
 
 			targetPos = Math.max(1, Math.min(targetPos, doc.content.size));

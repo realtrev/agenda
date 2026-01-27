@@ -33,9 +33,12 @@
 	import Bold from '@tiptap/extension-bold';
 	import Underline from '@tiptap/extension-underline';
 	import CharacterCount from '@tiptap/extension-character-count';
-	import ProjectChip, { resolveLabel } from './nodes/ProjectChip';
+	import ProjectChip from './nodes/ProjectChip';
 	import { mergeDocuments, splitDocumentAt } from './tools';
-	import { createEditorAPI, type EditorAPI } from './api';
+	import { createEditorAPI } from './api';
+	import { deepClone } from './utils/helpers';
+	import { computeAbsolutePosForBlockOffset, computeBlockOffsetForAbsolutePos } from './utils/position';
+	import { getSelectedTextWithCustomNodes } from './utils/selection';
 
 	// ============================================================================
 	// Props & State
@@ -59,148 +62,6 @@
 	let cursor: any = null;
 	let contentAPI: any = null;
 	let document: any = null;
-
-	// ============================================================================
-	// Utility Functions
-	// ============================================================================
-
-	function deepClone<T>(v: T): T {
-		return JSON.parse(JSON.stringify(v));
-	}
-
-	function _childTextLength(child: any): number {
-		if (!child) return 0;
-		if (child.isText) return child.text ? child.text.length : 0;
-		return 1; // Non-text inline nodes count as 1
-	}
-
-	// ============================================================================
-	// Position Conversion (ProseMirror ↔ BlockIndex/Offset)
-	// ============================================================================
-
-	/**
-	 * Convert {blockIndex, offset} to ProseMirror absolute position.
-	 * ProseMirror uses 1-based positions where position 1 is start of first block.
-	 */
-	function computeAbsolutePosForBlockOffset(blockIndex: number, offset: number): number {
-		if (!editor) return 1;
-		const doc = editor.state.doc;
-		const numBlocks = doc.childCount;
-
-		// Clamp block index to valid range
-		let bi = Math.max(0, Math.min(blockIndex, numBlocks - 1));
-		let ofs = Math.max(0, offset);
-
-		// Calculate position by summing sizes of blocks before target
-		let pos = 1;
-		for (let i = 0; i < bi && i < numBlocks; i++) {
-			pos += doc.child(i).nodeSize;
-		}
-
-		if (bi >= numBlocks) return doc.content.size;
-
-		const block = doc.child(bi);
-		if (!block) return doc.content.size;
-
-		// Find offset within block's inline content
-		let accum = 0;
-		for (let j = 0; j < block.childCount; j++) {
-			const child = block.child(j);
-			const childLen = _childTextLength(child);
-			if (accum + childLen >= ofs) {
-				return pos + accum + Math.max(0, Math.min(childLen, ofs - accum));
-			}
-			accum += childLen;
-		}
-
-		return pos + block.nodeSize - 1;
-	}
-
-	/**
-	 * Convert ProseMirror absolute position to {blockIndex, offset}.
-	 * Returns the block index and character offset within that block's content.
-	 */
-	function computeBlockOffsetForAbsolutePos(absPos: number): { blockIndex: number; offset: number } {
-		if (!editor) return { blockIndex: 0, offset: 0 };
-		const doc = editor.state.doc;
-		const pos = Math.max(1, Math.min(absPos, doc.content.size));
-
-		let running = 1;
-		for (let i = 0; i < doc.childCount; i++) {
-			const block = doc.child(i);
-			const blockStart = running;
-			const blockEnd = running + block.nodeSize - 1;
-			running += block.nodeSize;
-
-			if (pos >= blockStart && pos <= blockEnd) {
-				// Position relative to start of block content
-				// blockStart is the first content position (offset 0)
-				let innerPos = pos - blockStart;
-
-				// If position is before block content, return offset 0
-				if (innerPos < 0) {
-					return { blockIndex: i, offset: 0 };
-				}
-
-				// Walk through child nodes to find the correct offset
-				// (handles mixed text and inline nodes like ProjectChip)
-				let accum = 0;
-				for (let j = 0; j < block.childCount; j++) {
-					const child = block.child(j);
-					const childLen = _childTextLength(child);
-
-					// Check if position falls within or before this child
-					if (innerPos < accum + childLen) {
-						// innerPos already represents the correct offset
-						return { blockIndex: i, offset: innerPos };
-					}
-					accum += childLen;
-				}
-
-				// Position is at or after end of block content
-				return { blockIndex: i, offset: accum };
-			}
-		}
-
-		return { blockIndex: Math.max(0, doc.childCount - 1), offset: 0 };
-	}
-
-	/**
-	 * Extract selected text, including custom node labels (e.g., ProjectChip → "#AP Gov").
-	 * Walks through the selection range and renders each node appropriately.
-	 */
-	function getSelectedTextWithCustomNodes(from: number, to: number): string {
-		if (!editor) return '';
-		const doc = editor.state.doc;
-		let result = '';
-		let isFirstBlock = true;
-
-		doc.nodesBetween(from, to, (node: any, pos: number) => {
-			// Add newline between block nodes (paragraphs, headings, etc.)
-			if (node.isBlock && node.type.name !== 'doc') {
-				if (!isFirstBlock && result.length > 0) {
-					result += '\n';
-				}
-				isFirstBlock = false;
-			}
-
-			if (node.isText) {
-				// Extract the portion of text within selection bounds
-				const nodeFrom = Math.max(from, pos);
-				const nodeTo = Math.min(to, pos + node.nodeSize);
-				if (nodeTo > nodeFrom) {
-					result += node.text?.slice(nodeFrom - pos, nodeTo - pos) ?? '';
-				}
-			} else if (node.type.name === 'projectChip' && pos >= from && pos < to) {
-				// Render ProjectChip using its label resolver
-				const projectId = node.attrs?.projectId ?? null;
-				const projectName = node.attrs?.projectName ?? null;
-				result += resolveLabel(projectId, projectName);
-			}
-		});
-
-		return result;
-	}
 
 	// ============================================================================
 	// Event Handlers
@@ -228,13 +89,13 @@
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Enter' && typeof onEnter === 'function') {
 			try {
-				onEnter({ event: e, selection: getCursor() });
+				onEnter({ event: e, selection: cursor?.get?.() });
 			} catch {
 				// Swallow callback errors
 			}
 		} else if (e.key === 'Backspace' && typeof onBackspace === 'function') {
 			try {
-				onBackspace({ event: e, selection: getCursor() });
+				onBackspace({ event: e, selection: cursor?.get?.() });
 			} catch {
 				// Swallow callback errors
 			}
@@ -244,7 +105,7 @@
 	function handleSelectionChange() {
 		if (!editor) return;
 		try {
-			const payload = getCursor();
+			const payload = cursor?.get?.();
 			if (payload && typeof onSelectionChange === 'function') {
 				onSelectionChange(payload);
 			}
@@ -286,9 +147,7 @@
 		const api = createEditorAPI(
 			editor,
 			characterLimit,
-			getSelectedTextWithCustomNodes,
-			computeBlockOffsetForAbsolutePos,
-			computeAbsolutePosForBlockOffset
+			(from: number, to: number) => getSelectedTextWithCustomNodes(editor, from, to)
 		);
 		cursor = api.cursor;
 		contentAPI = api.content;

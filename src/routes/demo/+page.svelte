@@ -328,7 +328,7 @@
 		bind:content={mergedContent}
 		initial={mergedContent}
 		debounce={200}
-		onChange={({ content }) => (mergedContent = content)}
+		onChange={({ content }: any) => (mergedContent = content)}
 	/>
 
 	<div style="margin-top:8px;">
