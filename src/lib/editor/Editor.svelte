@@ -1,15 +1,63 @@
 <script lang="ts">
 	/**
-	 * Svelte 5 runes-style TipTap Editor component
+	 * TipTap Editor component (Svelte 5 runes style)
 	 *
-	 * - Uses $props() and $bindable for props and bindable content
-	 * - Accepts callback props: onChange, onEnter, onBackspace
-	 * - Exposes imperative methods via exported functions
+	 * Overview
+	 * - A small wrapper around TipTap (ProseMirror) that provides:
+	 *   - bindable JSON `content` (using Svelte 5 `$bindable`)
+	 *   - debounced onChange callbacks
+	 *   - selection change notifications with both absolute and block/offset coordinates
+	 *   - a tiny inline `atomic` node so demos can insert non-text atoms
+	 *   - a compact imperative API exported from the component instance
 	 *
-	 * Notes:
-	 * - This component assumes Svelte 5 runtime (runes available).
-	 * - TipTap deps must be available in your project:
-	 *   @tiptap/core, @tiptap/starter-kit, @tiptap/extension-link, @tiptap/extension-bold, @tiptap/extension-underline
+	 * Props / Bindings
+	 * - `initial` (object) : initial TipTap/ProseMirror JSON document. Used to initialize `content`.
+	 * - `content` (bindable) : the current document JSON. Parent components can `bind:content` to keep state in sync.
+	 * - `editable` (boolean) : whether the editor is editable.
+	 * - `debounce` (number) : debounce time in ms for calling `onChange` and updating `content`.
+	 *
+	 * Callback props (Svelte 5 runes-style)
+	 * - `onChange(payload)` :
+	 *     - payload: { content } — called after debounced updates when the editor document changes.
+	 * - `onEnter(payload)` :
+	 *     - payload: { event, selection } — called when Enter is pressed. `selection` is the same shape as getCursor().
+	 * - `onBackspace(payload)` :
+	 *     - payload: { event, selection } — called when Backspace is pressed.
+	 * - `onSelectionChange(payload)` :
+	 *     - payload: {
+	 *         selection: { from, to, empty },           // absolute ProseMirror positions
+	 *         start: { blockIndex, offset },            // selection start as block+char-offset (zero-based)
+	 *         end: { blockIndex, offset },              // selection end as block+char-offset (zero-based)
+	 *         selectedText: string
+	 *       }
+	 *
+	 * Notes about block/offset:
+	 * - `blockIndex` is the zero-based index of the top-level block node (e.g. paragraph).
+	 * - `offset` is a zero-based character offset within that block:
+	 *     - offset = 0 => before the first character of the block
+	 *     - offset = N => after N characters from the block start (i.e., position before character index N)
+	 * - Inline formatted text (bold, link, etc.) is counted by actual character length; non-text inline nodes (e.g. atomic) count as length 1.
+	 *
+	 * Exported Imperative API (exported functions on the component instance)
+	 * - `focusEditor(position?)` :
+	 *     - focus the editor. Optionally pass a position to set the cursor before focusing.
+	 *     - position can be numeric (interpreted as blockIndex) or { blockIndex, offset }.
+	 * - `setCursor(position)` :
+	 *     - programmatically place the caret using { blockIndex, offset } (or a numeric blockIndex).
+	 *     - uses character-based offsets (not ProseMirror's nodeSize) so offsets match visible characters.
+	 * - `getCursor()` :
+	 *     - returns { from, to, empty, start, end } where start/end are { blockIndex, offset }.
+	 * - `getSelectedText()` : returns plain selected text, or '' if empty.
+	 * - `mergeDocs(a, b)` and `splitDocAtPosition(doc, pos)` : thin wrappers over the pure helpers in ./tools.
+	 *
+	 * Implementation notes
+	 * - The editor uses a small `Atomic` inline node so demos can embed non-text atoms into the JSON.
+	 * - Selection updates are emitted via `onSelectionChange` and also available through `getCursor()`.
+	 * - The component tries to listen for TipTap/ProseMirror `selectionUpdate` events if available, and also emits an initial selection state on mount.
+	 *
+	 * Requirements
+	 * - This file expects TipTap packages to be installed: @tiptap/core, @tiptap/starter-kit, @tiptap/extension-link,
+	 *   @tiptap/extension-bold, @tiptap/extension-underline (or equivalents).
 	 */
 
 	import { onMount, onDestroy } from 'svelte';
