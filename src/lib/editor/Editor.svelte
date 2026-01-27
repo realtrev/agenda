@@ -72,22 +72,22 @@
 		if (!editor) return 1;
 		const doc = editor.state.doc;
 		const numBlocks = doc.childCount;
-		
+
 		// Clamp block index to valid range
 		let bi = Math.max(0, Math.min(blockIndex, numBlocks - 1));
 		let ofs = Math.max(0, offset);
-		
+
 		// Calculate position by summing sizes of blocks before target
 		let pos = 1;
 		for (let i = 0; i < bi && i < numBlocks; i++) {
 			pos += doc.child(i).nodeSize;
 		}
-		
+
 		if (bi >= numBlocks) return doc.content.size;
-		
+
 		const block = doc.child(bi);
 		if (!block) return doc.content.size;
-		
+
 		// Find offset within block's inline content
 		let accum = 0;
 		for (let j = 0; j < block.childCount; j++) {
@@ -98,7 +98,7 @@
 			}
 			accum += childLen;
 		}
-		
+
 		return pos + block.nodeSize - 1;
 	}
 
@@ -110,18 +110,18 @@
 		if (!editor) return { blockIndex: 0, offset: 0 };
 		const doc = editor.state.doc;
 		const pos = Math.max(1, Math.min(absPos, doc.content.size));
-		
+
 		let running = 1;
 		for (let i = 0; i < doc.childCount; i++) {
 			const block = doc.child(i);
 			const blockStart = running;
 			const blockEnd = running + block.nodeSize - 1;
 			running += block.nodeSize;
-			
+
 			if (pos >= blockStart && pos <= blockEnd) {
 				let accum = 0;
 				let innerPos = Math.max(0, pos - blockStart - 1);
-				
+
 				for (let j = 0; j < block.childCount; j++) {
 					const child = block.child(j);
 					const childLen = _childTextLength(child);
@@ -130,11 +130,11 @@
 					}
 					accum += childLen;
 				}
-				
+
 				return { blockIndex: i, offset: accum };
 			}
 		}
-		
+
 		return { blockIndex: Math.max(0, doc.childCount - 1), offset: 0 };
 	}
 
@@ -173,9 +173,9 @@
 	function handleEditorUpdate() {
 		if (!editor) return;
 		const json = editor.getJSON();
-		
+
 		if (_debounceTimer) clearTimeout(_debounceTimer);
-		
+
 		_debounceTimer = window.setTimeout(() => {
 			content = deepClone(json);
 			if (typeof onChange === 'function') {
@@ -292,7 +292,7 @@
 		try {
 			const current = editor.getJSON();
 			if (JSON.stringify(current) !== JSON.stringify(content)) {
-				(editor.commands as any).setContent(current, false);
+				(editor.commands as any).setContent(content, false);
 			}
 		} catch {
 			// Ignore
@@ -329,13 +329,13 @@
 	export function getCursor() {
 		if (!editor) return null;
 		const sel = editor.state.selection;
-		
+
 		// Convert from ProseMirror 1-based to 0-based positions
 		const selection = { from: sel.from - 1, to: sel.to - 1, empty: sel.empty };
 		const start = computeBlockOffsetForAbsolutePos(sel.from);
 		const end = computeBlockOffsetForAbsolutePos(sel.to);
 		const selectedText = sel.empty ? '' : getSelectedTextWithCustomNodes(sel.from, sel.to);
-		
+
 		return { selection, start, end, selectedText };
 	}
 
@@ -346,7 +346,7 @@
 	export function setCursor(position: number | { blockIndex: number; offset: number }) {
 		if (!editor) return;
 		const doc = editor.state.doc;
-		
+
 		let targetPos = 1;
 		if (typeof position === 'number') {
 			targetPos = computeAbsolutePosForBlockOffset(position, 0);
@@ -354,15 +354,15 @@
 			const { blockIndex, offset } = position;
 			targetPos = computeAbsolutePosForBlockOffset(blockIndex, offset);
 		}
-		
+
 		targetPos = Math.max(1, Math.min(targetPos, doc.content.size));
-		
+
 		try {
 			(editor.commands as any).setTextSelection(targetPos);
 		} catch {
 			// Fallback to just focusing
 		}
-		
+
 		editor.commands.focus();
 	}
 
