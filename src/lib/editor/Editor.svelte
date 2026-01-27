@@ -9,6 +9,7 @@
 	 *   - content: Bindable document state
 	 *   - editable: Enable/disable editing
 	 *   - debounce: Delay for onChange events (ms)
+	 *   - characterLimit: Maximum number of characters (0 = unlimited)
 	 *   - onChange, onEnter, onBackspace, onSelectionChange: Event callbacks
 	 *
 	 * API:
@@ -16,6 +17,7 @@
 	 *   - insertProjectChip
 	 *   - mergeDocs, splitDocAtPosition
 	 *   - isCursorAtStart, isCursorAtEnd
+	 *   - getCharacterCount: Get current character count and limit info
 	 */
 
 	import { onMount, onDestroy } from 'svelte';
@@ -30,6 +32,7 @@
 	import Link from '@tiptap/extension-link';
 	import Bold from '@tiptap/extension-bold';
 	import Underline from '@tiptap/extension-underline';
+	import CharacterCount from '@tiptap/extension-character-count';
 	import ProjectChip, { resolveLabel } from './nodes/ProjectChip';
 	import { mergeDocuments, splitDocumentAt } from './tools';
 
@@ -41,6 +44,7 @@
 		initial = { type: 'doc', content: [] },
 		editable = true,
 		debounce = 300,
+		characterLimit = 0,
 		content = $bindable(initial),
 		onChange,
 		onEnter,
@@ -263,6 +267,9 @@
 				Bold,
 				Underline,
 				Link.configure({ openOnClick: true }),
+				CharacterCount.configure({
+					limit: characterLimit > 0 ? characterLimit : undefined
+				}),
 				ProjectChip
 			],
 			content: deepClone(initial),
@@ -449,6 +456,26 @@
 		if (!editor) return false;
 		const sel = editor.state.selection;
 		return sel.empty && sel.to >= editor.state.doc.content.size;
+	}
+
+	/**
+	 * Get character count information.
+	 * @returns { characters, words, limit, percentage } or null if editor not ready
+	 */
+	export function getCharacterCount(): { characters: number; words: number; limit: number | null; percentage: number } | null {
+		if (!editor) return null;
+		try {
+			const storage = (editor as any).storage?.characterCount;
+			if (!storage) return null;
+			return {
+				characters: storage.characters?.() || 0,
+				words: storage.words?.() || 0,
+				limit: characterLimit > 0 ? characterLimit : null,
+				percentage: characterLimit > 0 ? Math.round((storage.characters?.() || 0) / characterLimit * 100) : 0
+			};
+		} catch {
+			return null;
+		}
 	}
 </script>
 
