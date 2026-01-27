@@ -67,6 +67,7 @@
 	import Bold from '@tiptap/extension-bold';
 	import Underline from '@tiptap/extension-underline';
 	import { mergeDocuments, splitDocumentAt } from './tools';
+	import { getProjectName, projects } from '$lib/stores/projects';
 
 	// Props via runes
 	// - `initial` must come before `content` because content's default references it
@@ -88,13 +89,50 @@
 	let editor: TipTapEditor | null = null;
 	let editorElement: HTMLElement | null = null;
 	let _debounceTimer: number | null = null;
+	let _projectsUnsub: (() => void) | null = null;
 
 	// Simple deep clone helper
 	function deepClone<T>(v: T): T {
 		return JSON.parse(JSON.stringify(v));
 	}
 
-	// Minimal inline atomic node so JSON can contain atomic nodes
+	// Hydrate atomic project chips in the editor DOM by looking up project names.
+	// Moved to top-level so it can be called from multiple places (mount, updates, setContent).
+	function hydrateProjectChips() {
+		try {
+			if (!editor) return;
+			const dom = (editor as any).view?.dom;
+			if (!dom) return;
+			const chips = dom.querySelectorAll('span[data-atomic]');
+			chips.forEach((el: Element) => {
+				try {
+					const projectId =
+						(el as HTMLElement).getAttribute('data-project-id') ||
+						(el as HTMLElement).getAttribute('data-atomic-id') ||
+						el.getAttribute('data-id') ||
+						null;
+					const name = projectId ? getProjectName(projectId) : null;
+					(el as HTMLElement).setAttribute('data-name', name || '');
+					if (name) {
+						(el as HTMLElement).textContent = `#${name}`;
+					} else if (projectId) {
+						(el as HTMLElement).textContent = `#${projectId}`;
+					} else {
+						(el as HTMLElement).textContent = '#Project';
+					}
+					(el as HTMLElement).classList.add('project-chip');
+				} catch {
+					// ignore per-chip errors
+				}
+			});
+		} catch {
+			// ignore hydration errors
+		}
+	}
+
+	// Minimal inline atomic node so JSON can contain atomic nodes (project chips)
+	// - Supports attrs: id, projectId, data
+	// - Renders a span with data attributes so the component can hydrate the display text
 	const Atomic = TipTapNode.create({
 		name: 'atomic',
 		group: 'inline',
@@ -105,20 +143,86 @@
 		addAttributes() {
 			return {
 				id: { default: null },
-				data: { default: null }
+				projectId: { default: null },
+				data: { default: null },
+				name: { default: '' }
 			};
 		},
 		parseHTML() {
+			// match the atomic span in the DOM
 			return [{ tag: 'span[data-atomic]' }];
 		},
+		renderText({ node }) {
+			return node.attrs?.name || '#Project';
+		},
 		renderHTML({ HTMLAttributes }: any) {
-			return ['span', { 'data-atomic': 'true', ...HTMLAttributes }, 0];
+			// include both data-atomic-id and data-project-id so stored JSON can use either
+			const attrs: Record<string, any> = {
+				'data-atomic': 'true',
+				class: 'project-chip',
+				...HTMLAttributes
+			};
+			if (HTMLAttributes.id) attrs['data-atomic-id'] = HTMLAttributes.id;
+			if (HTMLAttributes.projectId) attrs['data-project-id'] = HTMLAttributes.projectId;
+
+			// Render a sensible label immediately from attrs so the chip is visible
+			// even before any hydration/NodeView runs. Prefer a human-readable projectId if present.
+			let label = '#Project';
+			try {
+				if (HTMLAttributes.projectId) label = `#${HTMLAttributes.projectId}`;
+				else if (HTMLAttributes.id) label = `#${HTMLAttributes.id}`;
+			} catch {
+				// ignore and fall back to generic label
+			}
+
+			return ['span', attrs, label];
+		},
+		// Provide a NodeView so TipTap renders a DOM chip synchronously from node attrs.projectId
+		addNodeView() {
+			return ({ node }) => {
+				const projectId = node.attrs?.projectId ?? node.attrs?.id ?? null;
+				const span = document.createElement('span');
+				span.setAttribute('data-atomic', 'true');
+				span.setAttribute('draggable', 'false');
+				if (projectId) span.setAttribute('data-project-id', String(projectId));
+				span.className = 'project-chip';
+
+				// Resolve project name synchronously from the store helper
+				try {
+					const name = getProjectName(projectId);
+					if (name) span.textContent = `#${name}`;
+					else if (projectId) span.textContent = `#${projectId}`;
+					else span.textContent = '#Project';
+				} catch {
+					span.textContent = projectId ? `#${projectId}` : '#Project';
+				}
+
+				return {
+					dom: span,
+					// update when the node's attrs change (e.g. projectId updated)
+					update(updatedNode: any) {
+						try {
+							const newId = updatedNode.attrs?.projectId ?? updatedNode.attrs?.id ?? null;
+							if (newId) span.setAttribute('data-project-id', String(newId));
+							else span.removeAttribute('data-project-id');
+							const newName = getProjectName(newId);
+							if (newName) span.textContent = `#${newName}`;
+							else if (newId) span.textContent = `#${newId}`;
+							else span.textContent = '#Project';
+						} catch {
+							// ignore update errors
+						}
+						return true;
+					}
+				};
+			};
 		}
 	});
 
 	// Called by TipTap on update; debounce and assign to bindable `content`
 	function handleEditorUpdate() {
 		if (!editor) return;
+		hydrateProjectChips();
 		const json = editor.getJSON();
 		// Debounce updating the bound content and calling onChange
 		if (_debounceTimer) {
@@ -136,6 +240,10 @@
 					// swallow user callback errors
 				}
 			}
+			// hydrate atomic project chips after updating content (run on next tick)
+			try {
+				setTimeout(() => hydrateProjectChips(), 0);
+			} catch (e) {}
 			_debounceTimer = null;
 		}, debounce) as unknown as number;
 	}
@@ -289,12 +397,57 @@
 			// if .on isn't available, we skip
 		}
 
+		// subscribe to projects store so we can re-hydrate chips when project data changes
+		try {
+			_projectsUnsub = projects.subscribe(() => {
+				// schedule a hydrate on next tick to allow the editor DOM to be stable
+				setTimeout(() => hydrateProjectChips(), 0);
+			});
+		} catch {
+			_projectsUnsub = null;
+		}
+
 		// sync initial into bindable content (parent may not be bound yet)
 		content = deepClone(initial);
 
+		// hydrate atomic project chips in the editor DOM by looking up project names
+		function hydrateProjectChips() {
+			try {
+				if (!editor) return;
+				const dom = (editor as any).view?.dom;
+				if (!dom) return;
+				const chips = dom.querySelectorAll('span[data-atomic]');
+				chips.forEach((el: Element) => {
+					try {
+						const projectId =
+							(el as HTMLElement).getAttribute('data-project-id') ||
+							(el as HTMLElement).getAttribute('data-atomic-id') ||
+							el.getAttribute('data-id') ||
+							null;
+						const name = projectId ? getProjectName(projectId) : null;
+						(el as HTMLElement).setAttribute('data-name', name || '');
+						if (name) {
+							(el as HTMLElement).textContent = `#${name}`;
+						} else if (projectId) {
+							(el as HTMLElement).textContent = `#${projectId}`;
+						} else {
+							(el as HTMLElement).textContent = '#Project';
+						}
+						(el as HTMLElement).classList.add('project-chip');
+					} catch {
+						// ignore per-chip errors
+					}
+				});
+			} catch {
+				// ignore hydration errors
+			}
+		}
+
 		// fire an initial selection update so parent can reflect initial cursor state
+		// and hydrate atomic chips inside the editor DOM
 		setTimeout(() => {
 			handleSelectionChange();
+			hydrateProjectChips();
 		}, 0);
 
 		return () => {
@@ -308,6 +461,15 @@
 				} catch {
 					/* ignore */
 				}
+				window.removeEventListener('mouseup', _domSelHandler);
+				window.removeEventListener('keyup', _domSelHandler);
+				// unsubscribe from projects store
+				try {
+					_projectsUnsub && _projectsUnsub();
+				} catch {
+					/* ignore */
+				}
+				_projectsUnsub = null;
 				editor.destroy();
 				editor = null;
 			}
@@ -325,6 +487,13 @@
 			} catch {
 				/* ignore */
 			}
+			// unsubscribe from projects store if still subscribed
+			try {
+				_projectsUnsub && _projectsUnsub();
+			} catch {
+				/* ignore */
+			}
+			_projectsUnsub = null;
 			editor.destroy();
 			editor = null;
 		}
@@ -340,6 +509,10 @@
 			if (current && JSON.stringify(current) !== JSON.stringify(content)) {
 				// setContent's second arg types vary across tiptap versions; cast to any
 				(editor.commands as any).setContent(deepClone(content), false as any);
+				// hydrate atomic project chips when parent sets content programmatically
+				try {
+					setTimeout(() => hydrateProjectChips(), 0);
+				} catch (e) {}
 			}
 		} catch {
 			// ignore errors from getJSON or setContent
@@ -410,6 +583,24 @@
 	}
 
 	// Pure helpers exposure
+	export function insertProjectChip(projectId: string) {
+		// Inserts an atomic project chip at the current selection/caret.
+		// Returns true if insertion appears to have been dispatched.
+		if (!editor) return false;
+		try {
+			const id = projectId;
+			// TipTap command to insert inline node. Compatibility: cast to any.
+			(editor.commands as any).insertContent({ type: 'atomic', attrs: { projectId: id } });
+			// hydrate chips after insertion
+			try {
+				setTimeout(() => hydrateProjectChips(), 0);
+			} catch {}
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
 	export function mergeDocs(a: any, b: any) {
 		return mergeDocuments(a, b);
 	}
@@ -458,5 +649,13 @@
 	.editor-wrapper:focus-within {
 		border-color: #8ab4f8;
 		box-shadow: 0 0 0 3px rgba(138, 180, 248, 0.15);
+	}
+
+	:global(.project-chip[data-project-id='']) {
+		@apply opacity-80;
+	}
+
+	:global(.tiptap) {
+		outline: none;
 	}
 </style>

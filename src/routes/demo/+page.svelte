@@ -11,7 +11,8 @@
 				type: 'paragraph',
 				content: [
 					{ type: 'text', text: 'Hello ' },
-					{ type: 'text', text: 'Bold', marks: [{ type: 'bold' }] },
+					{ type: 'atomic', attrs: { projectId: '43987466557' } },
+					{ type: 'text', text: ' Bold', marks: [{ type: 'bold' }] },
 					{ type: 'text', text: ' world. ' },
 					{
 						type: 'text',

@@ -148,7 +148,15 @@
 
 /* apply underline and blue color to links that are nested children of tiptap class */
 .tiptap a {
-	@apply hover:cursor-pointer text-gray-400 underline;
+	@apply text-gray-400 underline hover:cursor-pointer;
+}
+
+/* Project chip styling for atomic nodes (global so TipTap nodeviews receive styles) */
+.project-chip {
+	@apply inline-flex items-center rounded-sm bg-secondary px-[4px] py-[2px] text-sm font-medium text-secondary-foreground/90 not-italic transition;
+}
+.project-chip.ProseMirror-selectednode {
+	@apply ring ring-secondary ring-offset-2;
 }
 
 /*html,
