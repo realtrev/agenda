@@ -39,6 +39,7 @@
 	import { deepClone } from './utils/helpers';
 	import { computeAbsolutePosForBlockOffset, computeBlockOffsetForAbsolutePos } from './utils/position';
 	import { getSelectedTextWithCustomNodes } from './utils/selection';
+	import { mergeConfig, type EditorConfig } from './config';
 
 	// ============================================================================
 	// Props & State
@@ -49,12 +50,16 @@
 		editable = true,
 		debounce = 300,
 		characterLimit = 0,
+		config,
 		content = $bindable(initial),
 		onChange,
 		onEnter,
 		onBackspace,
 		onSelectionChange
 	}: any = $props();
+
+	// Merge user config with defaults
+	const editorConfig = mergeConfig(config);
 
 	let editor: TipTapEditor | null = null;
 	let editorElement: HTMLElement | null = null;
@@ -126,16 +131,16 @@
 				Paragraph,
 				Text,
 				HardBreak,
-				History,
+				...(editorConfig.history ? [History] : []),
 				Gapcursor,
 				Dropcursor,
-				Bold,
-				Underline,
-				Link.configure({ openOnClick: true }),
+				...(editorConfig.formatting?.bold ? [Bold] : []),
+				...(editorConfig.formatting?.underline ? [Underline] : []),
+				...(editorConfig.links ? [Link.configure({ openOnClick: true })] : []),
 				CharacterCount.configure({
 					limit: characterLimit > 0 ? characterLimit : undefined
 				}),
-				ProjectChip
+				...(editorConfig.projectChips ? [ProjectChip] : [])
 			],
 			content: deepClone(initial),
 			editable,
@@ -147,7 +152,8 @@
 		const api = createEditorAPI(
 			editor,
 			characterLimit,
-			(from: number, to: number) => getSelectedTextWithCustomNodes(editor, from, to)
+			(from: number, to: number) => getSelectedTextWithCustomNodes(editor, from, to),
+			editorConfig
 		);
 		cursor = api.cursor;
 		contentAPI = api.content;

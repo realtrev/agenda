@@ -1,5 +1,6 @@
 import type { Editor as TipTapEditor } from '@tiptap/core';
 import { computeBlockOffsetForAbsolutePos, computeAbsolutePosForBlockOffset } from '../utils/position';
+import type { EditorConfig } from '../config';
 
 export interface CursorInfo {
 	selection: { from: number; to: number; empty: boolean };
@@ -13,25 +14,10 @@ export interface CursorInfo {
  */
 export function createCursorAPI(
 	editor: TipTapEditor | null,
-	getSelectedTextWithCustomNodes: (from: number, to: number) => string
+	getSelectedTextWithCustomNodes: (from: number, to: number) => string,
+	config: EditorConfig
 ) {
-	return {
-		/**
-		 * Focus the editor, optionally positioning cursor at specified location.
-		 * @param position - Absolute position (number) or {blockIndex, offset}
-		 */
-		focus(position?: number | { blockIndex: number; offset: number }) {
-			if (!editor) return;
-			if (position !== undefined && position !== null) {
-				try {
-					this.set(position as any);
-				} catch {
-					// Ignore
-				}
-			}
-			editor.commands.focus();
-		},
-
+	const api: any = {
 		/**
 		 * Get current cursor/selection information.
 		 * Returns: { selection, start, end, selectedText }
@@ -57,10 +43,41 @@ export function createCursorAPI(
 		},
 
 		/**
-		 * Set cursor position.
-		 * @param position - Absolute position (number) or {blockIndex, offset}
+		 * Check if cursor is at the start of the document.
 		 */
-		set(position: number | { blockIndex: number; offset: number }) {
+		isAtStart(): boolean {
+			if (!editor) return false;
+			const sel = editor.state.selection;
+			return sel.empty && sel.from <= 1;
+		},
+
+		/**
+		 * Check if cursor is at the end of the document.
+		 */
+		isAtEnd(): boolean {
+			if (!editor) return false;
+			const sel = editor.state.selection;
+			return sel.empty && sel.to >= editor.state.doc.content.size;
+		}
+	};
+
+	// Conditionally add methods based on config
+	if (config.cursor?.focus !== false) {
+		api.focus = function(position?: number | { blockIndex: number; offset: number }) {
+			if (!editor) return;
+			if (position !== undefined && position !== null) {
+				try {
+					this.set(position as any);
+				} catch {
+					// Ignore
+				}
+			}
+			editor.commands.focus();
+		};
+	}
+
+	if (config.cursor?.set !== false) {
+		api.set = function(position: number | { blockIndex: number; offset: number }) {
 			if (!editor) return;
 			const doc = editor.state.doc;
 
@@ -81,38 +98,21 @@ export function createCursorAPI(
 			}
 
 			editor.commands.focus();
-		},
+		};
+	}
 
-		/**
-		 * Check if cursor is at the start of the document.
-		 */
-		isAtStart(): boolean {
-			if (!editor) return false;
-			const sel = editor.state.selection;
-			return sel.empty && sel.from <= 1;
-		},
-
-		/**
-		 * Check if cursor is at the end of the document.
-		 */
-		isAtEnd(): boolean {
-			if (!editor) return false;
-			const sel = editor.state.selection;
-			return sel.empty && sel.to >= editor.state.doc.content.size;
-		},
-
-		/**
-		 * Select all content in the editor.
-		 */
-		selectAll(): boolean {
+	if (config.cursor?.selectAll !== false) {
+		api.selectAll = function(): boolean {
 			if (!editor) return false;
 			try {
 				return (editor.commands as any).selectAll();
 			} catch {
 				return false;
 			}
-		}
-	};
+		};
+	}
+
+	return api;
 }
 
 export type CursorAPI = ReturnType<typeof createCursorAPI>;

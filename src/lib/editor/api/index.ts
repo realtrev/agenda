@@ -3,6 +3,7 @@ import { createCursorAPI, type CursorAPI } from './cursor';
 import { createContentAPI, type ContentAPI } from './content';
 import { createDocumentAPI, type DocumentAPI } from './document';
 import { getSelectedTextWithCustomNodes } from '../utils/selection';
+import type { EditorConfig } from '../config';
 
 /**
  * Create the editor API subsections
@@ -12,15 +13,13 @@ import { getSelectedTextWithCustomNodes } from '../utils/selection';
 export function createEditorAPI(
 	editor: TipTapEditor | null,
 	characterLimit: number = 0,
-	getSelectedTextWithCustomNodes_arg: (from: number, to: number) => string
+	getSelectedTextWithCustomNodes_arg: (from: number, to: number) => string,
+	config: EditorConfig
 ) {
 	return {
-		cursor: createCursorAPI(
-			editor,
-			getSelectedTextWithCustomNodes_arg
-		),
-		content: createContentAPI(editor),
-		document: createDocumentAPI(editor, characterLimit)
+		cursor: createCursorAPI(editor, getSelectedTextWithCustomNodes_arg, config),
+		content: createContentAPI(editor, config),
+		document: createDocumentAPI(editor, characterLimit, config)
 	};
 }
 
