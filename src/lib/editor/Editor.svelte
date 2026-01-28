@@ -67,6 +67,10 @@
 	let cursor: any = null;
 	let contentAPI: any = null;
 	let documentAPI: any = null;
+	let formattingAPI: any = null;
+
+	// Editor state signal (for Svelte 5 reactivity)
+	let editorState = $state({ editor: null as TipTapEditor | null });
 
 	// Merge user config with defaults
 	const editorConfig = $derived(mergeConfig(config));
@@ -121,18 +125,21 @@
 				onSelectionChange(payload);
 			}
 
-			// Update bubble menu button states
-			if (editorConfig.bubbleMenu) {
-				if (editorConfig.formatting?.bold) {
-					isBoldActive = editor.isActive('bold');
+			// Update bubble menu button states using formatting API
+			if (editorConfig.bubbleMenu && formattingAPI) {
+				if (editorConfig.formatting?.bold && formattingAPI.isBoldActive) {
+					isBoldActive = formattingAPI.isBoldActive();
 				}
-				if (editorConfig.formatting?.underline) {
-					isUnderlineActive = editor.isActive('underline');
+				if (editorConfig.formatting?.underline && formattingAPI.isUnderlineActive) {
+					isUnderlineActive = formattingAPI.isUnderlineActive();
 				}
-				if (editorConfig.links) {
-					isLinkActive = editor.isActive('link');
+				if (editorConfig.links && formattingAPI.isLinkActive) {
+					isLinkActive = formattingAPI.isLinkActive();
 				}
 			}
+
+			// Force reactivity update for Svelte 5
+			editorState = { editor };
 		} catch {
 			// Ignore errors
 		}
@@ -143,29 +150,22 @@
 	// ============================================================================
 
 	function toggleBold() {
-		if (!editor) return;
-		editor.chain().focus().toggleBold().run();
+		if (!formattingAPI?.toggleBold) return;
+		formattingAPI.toggleBold();
 		// Update button state immediately
 		setTimeout(() => handleSelectionChange(), 0);
 	}
 
 	function toggleUnderline() {
-		if (!editor) return;
-		editor.chain().focus().toggleUnderline().run();
+		if (!formattingAPI?.toggleUnderline) return;
+		formattingAPI.toggleUnderline();
 		// Update button state immediately
 		setTimeout(() => handleSelectionChange(), 0);
 	}
 
 	function toggleLink() {
-		if (!editor) return;
-		if (editor.isActive('link')) {
-			editor.chain().focus().unsetLink().run();
-		} else {
-			const url = prompt('Enter URL:');
-			if (url) {
-				editor.chain().focus().setLink({ href: url }).run();
-			}
-		}
+		if (!formattingAPI?.toggleLink) return;
+		formattingAPI.toggleLink();
 		// Update button state immediately
 		setTimeout(() => handleSelectionChange(), 0);
 	}
@@ -211,7 +211,11 @@
 			content: deepClone(initial),
 			editable,
 			onUpdate: handleEditorUpdate,
-			onCreate: handleEditorUpdate
+			onCreate: handleEditorUpdate,
+			onTransaction: () => {
+				// Update the state signal to force a re-render (Svelte 5 pattern)
+				editorState = { editor };
+			}
 		});
 
 		// Initialize the API subsections
@@ -224,6 +228,7 @@
 		cursor = api.cursor;
 		contentAPI = api.content;
 		documentAPI = api.document;
+		formattingAPI = api.formatting;
 
 		const dom = (editor as any).view?.dom;
 		if (dom) dom.addEventListener('keydown', handleKeydown);
@@ -261,6 +266,7 @@
 				cursor = null;
 				contentAPI = null;
 				documentAPI = null;
+				formattingAPI = null;
 			}
 		};
 	});
@@ -300,14 +306,16 @@
 	 * - editor.cursor.focus(), editor.cursor.get(), editor.cursor.set(), etc.
 	 * - editor.content.insertProjectChip(), editor.content.insertText(), etc.
 	 * - editor.document.getJSON(), editor.document.getCharacterCount(), etc.
+	 * - editor.formatting.toggleBold(), editor.formatting.toggleUnderline(), etc.
 	 *
 	 * Usage in components:
 	 * <Editor bind:this={editor} bind:content={doc} />
 	 * editor.cursor.focus()
 	 * editor.document.getJSON()
 	 * editor.content.insertProjectChip('id')
+	 * editor.formatting.toggleBold()
 	 */
-	export { cursor, contentAPI as content, documentAPI as document }
+	export { cursor, contentAPI as content, documentAPI as document, formattingAPI as formatting }
 </script>
 
 <div class="editor-wrapper" bind:this={editorElement} aria-label="Rich text editor"></div>
@@ -375,5 +383,21 @@
 
 	:global(.project-chip[data-project-id='']) {
 		opacity: 0.85;
+	}
+
+	.bubble-menu {
+		visibility: hidden;
+		opacity: 0;
+		transition: opacity 0.2s, visibility 0.2s;
+		position: absolute;
+		z-index: 1000;
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+		border: 1px solid hsl(var(--border));
+	}
+
+	/* Tiptap's BubbleMenu extension adds .is-active class when text is selected */
+	:global(.bubble-menu.is-active) {
+		visibility: visible;
+		opacity: 1;
 	}
 </style>
