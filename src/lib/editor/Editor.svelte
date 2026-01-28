@@ -33,6 +33,7 @@
 	import Bold from '@tiptap/extension-bold';
 	import Underline from '@tiptap/extension-underline';
 	import CharacterCount from '@tiptap/extension-character-count';
+	import Italic from '@tiptap/extension-italic';
 	import BubbleMenu from '@tiptap/extension-bubble-menu';
 	import ProjectChip from './nodes/ProjectChip';
 	import { mergeDocuments, splitDocumentAt } from './tools';
@@ -42,6 +43,10 @@
 	import { getSelectedTextWithCustomNodes } from './utils/selection';
 	import { mergeConfig, type EditorConfig } from './config';
 	import Button from '$lib/components/ui/button/button.svelte';
+	import BoldIcon from 'lucide-svelte/icons/bold';
+	import ItalicIcon from 'lucide-svelte/icons/italic';
+	import UnderlineIcon from 'lucide-svelte/icons/underline';
+	import LinkIcon from 'lucide-svelte/icons/link';
 
 	// ============================================================================
 	// Props & State
@@ -77,6 +82,7 @@
 
 	// Bubble menu state
 	let isBoldActive = $state(false);
+	let isItalicActive = $state(false);
 	let isUnderlineActive = $state(false);
 	let isLinkActive = $state(false);
 
@@ -130,6 +136,9 @@
 				if (editorConfig.formatting?.bold && formattingAPI.isBoldActive) {
 					isBoldActive = formattingAPI.isBoldActive();
 				}
+				if (editorConfig.formatting?.italic && formattingAPI.isItalicActive) {
+					isItalicActive = formattingAPI.isItalicActive();
+				}
 				if (editorConfig.formatting?.underline && formattingAPI.isUnderlineActive) {
 					isUnderlineActive = formattingAPI.isUnderlineActive();
 				}
@@ -152,6 +161,13 @@
 	function toggleBold() {
 		if (!formattingAPI?.toggleBold) return;
 		formattingAPI.toggleBold();
+		// Update button state immediately
+		setTimeout(() => handleSelectionChange(), 0);
+	}
+
+	function toggleItalic() {
+		if (!formattingAPI?.toggleItalic) return;
+		formattingAPI.toggleItalic();
 		// Update button state immediately
 		setTimeout(() => handleSelectionChange(), 0);
 	}
@@ -193,8 +209,7 @@
 				...(editorConfig.history ? [History] : []),
 				Gapcursor,
 				Dropcursor,
-				...(editorConfig.formatting?.bold ? [Bold] : []),
-				...(editorConfig.formatting?.underline ? [Underline] : []),
+				...(editorConfig.formatting?.bold ? [Bold] : []),			...(editorConfig.formatting?.italic ? [Italic] : []),				...(editorConfig.formatting?.underline ? [Underline] : []),
 				...(editorConfig.links ? [Link.configure({ openOnClick: true })] : []),
 				CharacterCount.configure({
 					limit: characterLimit > 0 ? characterLimit : undefined
@@ -329,7 +344,18 @@
 				size="icon-sm"
 				title="Bold"
 			>
-				<strong>B</strong>
+				<BoldIcon class="h-4 w-4" />
+			</Button>
+		{/if}
+
+		{#if editorConfig.formatting?.italic}
+			<Button
+				onclick={toggleItalic}
+				variant={isItalicActive ? 'default' : 'ghost'}
+				size="icon-sm"
+				title="Italic"
+			>
+				<ItalicIcon class="h-4 w-4" />
 			</Button>
 		{/if}
 
@@ -340,7 +366,7 @@
 				size="icon-sm"
 				title="Underline"
 			>
-				<span class="underline">U</span>
+				<UnderlineIcon class="h-4 w-4" />
 			</Button>
 		{/if}
 
@@ -351,18 +377,7 @@
 				size="icon-sm"
 				title="Link"
 			>
-				🔗
-			</Button>
-		{/if}
-
-		{#if editorConfig.projectChips}
-			<Button
-				onclick={insertChip}
-				variant="ghost"
-				size="icon-sm"
-				title="Insert Project Chip"
-			>
-				📎
+				<LinkIcon class="h-4 w-4" />
 			</Button>
 		{/if}
 	</div>

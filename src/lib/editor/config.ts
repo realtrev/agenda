@@ -6,6 +6,7 @@ export interface EditorConfig {
 	/** Enable/disable formatting marks */
 	formatting?: {
 		bold?: boolean;
+		italic?: boolean;
 		underline?: boolean;
 	};
 
@@ -51,6 +52,7 @@ export interface EditorConfig {
 export const DEFAULT_CONFIG: EditorConfig = {
 	formatting: {
 		bold: true,
+		italic: true,
 		underline: true
 	},
 	links: true,

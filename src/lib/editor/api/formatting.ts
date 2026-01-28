@@ -24,6 +24,23 @@ export function createFormattingAPI(editor: TipTapEditor | null, config: EditorC
 		};
 	}
 
+	// Italic formatting
+	if (config.formatting?.italic) {
+		api.toggleItalic = function(): boolean {
+			if (!editor) return false;
+			try {
+				return editor.chain().focus().toggleItalic().run();
+			} catch {
+				return false;
+			}
+		};
+
+		api.isItalicActive = function(): boolean {
+			if (!editor) return false;
+			return editor.isActive('italic');
+		};
+	}
+
 	// Underline formatting
 	if (config.formatting?.underline) {
 		api.toggleUnderline = function(): boolean {
