@@ -28,6 +28,7 @@
 	import HardBreak from '@tiptap/extension-hard-break';
 	import History from '@tiptap/extension-history';
 	import Gapcursor from '@tiptap/extension-gapcursor';
+	import LinkPopup from './LinkPopup.svelte';
 	import Dropcursor from '@tiptap/extension-dropcursor';
 	import Link from '@tiptap/extension-link';
 	import Bold from '@tiptap/extension-bold';
@@ -65,7 +66,7 @@
 		onSelectionChange
 	}: any = $props();
 
-	let editor: TipTapEditor | null = null;
+	let editor = $state<TipTapEditor | null>(null);
 	let editorElement: HTMLElement | null = null;
 	let bubbleMenuElement = $state<HTMLElement | null>(null);
 	let _debounceTimer: number | null = null;
@@ -73,9 +74,8 @@
 	let contentAPI: any = null;
 	let documentAPI: any = null;
 	let formattingAPI: any = null;
-
-	// Editor state signal (for Svelte 5 reactivity)
-	let editorState = $state({ editor: null as TipTapEditor | null });
+	let popupAPI: any = null;
+	let popupState = $state<any>({ isVisible: false, component: undefined, markName: '', attrs: {}, markStart: 0, markEnd: 0, onAction: () => {}, onHide: () => {} });
 
 	// Merge user config with defaults
 	const editorConfig = $derived(mergeConfig(config));
@@ -85,6 +85,10 @@
 	let isItalicActive = $state(false);
 	let isUnderlineActive = $state(false);
 	let isLinkActive = $state(false);
+
+	// Popup menu state
+	let escapePressed = $state(false);
+	let allowPopup = $state(false); // Prevent popup from showing on initial mount
 
 	// ============================================================================
 
@@ -147,8 +151,10 @@
 				}
 			}
 
-			// Force reactivity update for Svelte 5
-			editorState = { editor };
+			// Check and update popup menu based on cursor position
+			if (popupAPI && !escapePressed && allowPopup) {
+				popupAPI.checkAndShow('link', LinkPopup);
+			}
 		} catch {
 			// Ignore errors
 		}
@@ -228,22 +234,29 @@
 			onUpdate: handleEditorUpdate,
 			onCreate: handleEditorUpdate,
 			onTransaction: () => {
-				// Update the state signal to force a re-render (Svelte 5 pattern)
-				editorState = { editor };
+				// Svelte 5 reactivity is automatic with $state
 			}
 		});
 
 		// Initialize the API subsections
 		const api = createEditorAPI(
 			editor,
-			characterLimit,
 			(from: number, to: number) => getSelectedTextWithCustomNodes(editor, from, to),
-			editorConfig
+			editorConfig,
+			characterLimit,
+			LinkPopup,
+			(state: any) => {
+				popupState = state;
+			}
 		);
 		cursor = api.cursor;
 		contentAPI = api.content;
 		documentAPI = api.document;
 		formattingAPI = api.formatting;
+		popupAPI = api.popup;
+
+		// Attach popup API to editor instance for access through editor
+		(editor as any).popup = api.popup;
 
 		const dom = (editor as any).view?.dom;
 		if (dom) dom.addEventListener('keydown', handleKeydown);
@@ -256,7 +269,17 @@
 		}
 
 		// Listen to DOM selection events as fallback
-		const domSelHandler = () => handleSelectionChange();
+		let userHasInteracted = false;
+		const domSelHandler = () => {
+			if (!userHasInteracted) {
+				userHasInteracted = true;
+				// Add a small delay to ensure this is a real user interaction
+				setTimeout(() => {
+					allowPopup = true;
+				}, 100);
+			}
+			handleSelectionChange();
+		};
 		window.addEventListener('mouseup', domSelHandler);
 		window.addEventListener('keyup', domSelHandler);
 		window.addEventListener('selectionchange', domSelHandler);
@@ -282,6 +305,7 @@
 				contentAPI = null;
 				documentAPI = null;
 				formattingAPI = null;
+				popupAPI = null;
 			}
 		};
 	});
@@ -322,6 +346,7 @@
 	 * - editor.content.insertProjectChip(), editor.content.insertText(), etc.
 	 * - editor.document.getJSON(), editor.document.getCharacterCount(), etc.
 	 * - editor.formatting.toggleBold(), editor.formatting.toggleUnderline(), etc.
+	 * - editor.popup.registerHandler(), editor.popup.show(), etc.
 	 *
 	 * Usage in components:
 	 * <Editor bind:this={editor} bind:content={doc} />
@@ -329,8 +354,9 @@
 	 * editor.document.getJSON()
 	 * editor.content.insertProjectChip('id')
 	 * editor.formatting.toggleBold()
+	 * editor.popup.registerHandler('link', { component: LinkPopup })
 	 */
-	export { cursor, contentAPI as content, documentAPI as document, formattingAPI as formatting }
+	export { cursor, contentAPI as content, documentAPI as document, formattingAPI as formatting, popupAPI as popup }
 </script>
 
 <div class="editor-wrapper" bind:this={editorElement} aria-label="Rich text editor"></div>
@@ -339,7 +365,6 @@
 	<div
 		bind:this={bubbleMenuElement}
 		class="bubble-menu flex gap-1 bg-card p-1 rounded-sm"
-		onmousedown={(e) => e.preventDefault()}
 	>
 		{#if editorConfig.formatting?.bold}
 			<Button
@@ -389,6 +414,19 @@
 			</Button>
 		{/if}
 	</div>
+{/if}
+
+<!-- Popup Menu -->
+{#if popupState.isVisible && popupState.component}
+	<popupState.component
+		{editor}
+		attrs={popupState.attrs}
+		markStart={popupState.markStart}
+		markEnd={popupState.markEnd}
+		onAction={popupState.onAction}
+		onHide={popupState.onHide}
+		popupAPI={popupAPI}
+	/>
 {/if}
 
 <style>
