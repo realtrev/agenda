@@ -336,10 +336,15 @@
 <div class="editor-wrapper" bind:this={editorElement} aria-label="Rich text editor"></div>
 
 {#if editorConfig.bubbleMenu}
-	<div bind:this={bubbleMenuElement} class="bubble-menu flex gap-1 bg-card p-1 rounded-sm">
+	<div
+		bind:this={bubbleMenuElement}
+		class="bubble-menu flex gap-1 bg-card p-1 rounded-sm"
+		onmousedown={(e) => e.preventDefault()}
+	>
 		{#if editorConfig.formatting?.bold}
 			<Button
 				onclick={toggleBold}
+				onmousedown={(e) => e.preventDefault()}
 				variant={isBoldActive ? 'default' : 'ghost'}
 				size="icon-sm"
 				title="Bold"
@@ -351,6 +356,7 @@
 		{#if editorConfig.formatting?.italic}
 			<Button
 				onclick={toggleItalic}
+				onmousedown={(e) => e.preventDefault()}
 				variant={isItalicActive ? 'default' : 'ghost'}
 				size="icon-sm"
 				title="Italic"
@@ -362,6 +368,7 @@
 		{#if editorConfig.formatting?.underline}
 			<Button
 				onclick={toggleUnderline}
+				onmousedown={(e) => e.preventDefault()}
 				variant={isUnderlineActive ? 'default' : 'ghost'}
 				size="icon-sm"
 				title="Underline"
@@ -373,6 +380,7 @@
 		{#if editorConfig.links}
 			<Button
 				onclick={toggleLink}
+				onmousedown={(e) => e.preventDefault()}
 				variant={isLinkActive ? 'default' : 'ghost'}
 				size="icon-sm"
 				title="Link"
@@ -385,6 +393,7 @@
 
 <style>
 	.editor-wrapper {
+		position: relative;
 		border: 1px solid #e0e0e0;
 		border-radius: 6px;
 		padding: 12px;
@@ -408,11 +417,16 @@
 		z-index: 1000;
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 		border: 1px solid hsl(var(--border));
+		display: flex;
+		gap: 0.25rem;
+		padding: 0.25rem;
+		border-radius: 0.375rem;
 	}
 
 	/* Tiptap's BubbleMenu extension adds .is-active class when text is selected */
 	:global(.bubble-menu.is-active) {
 		visibility: visible;
 		opacity: 1;
+		pointer-events: auto;
 	}
 </style>
