@@ -19,10 +19,8 @@
 		popupAPI: any;
 	} = $props();
 
-	let isVisible = $state(true);
 	let x = $state(0);
 	let y = $state(0);
-	let userInitiatedHide = $state(false);
 
 	function updatePosition() {
 		if (!editor || !popupAPI || markStart === undefined) return;
@@ -38,22 +36,12 @@
 		if (e.key === 'Escape') {
 			e.preventDefault();
 			e.stopPropagation();
-			userInitiatedHide = true;
-			isVisible = false;
 			onHide();
-			// Reset flag after handling blur events
-			setTimeout(() => {
-				userInitiatedHide = false;
-			}, 50);
 			return;
 		}
 
-		// Don't reappear if user just closed it
-		if (userInitiatedHide) return;
-
 		// Arrow keys and text input make popup reappear
 		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key) || /^[a-zA-Z0-9\s]$/.test(e.key)) {
-			isVisible = true;
 			setTimeout(() => updatePosition(), 0);
 		}
 	}
@@ -85,13 +73,8 @@
 		// Update position whenever editor or markStart changes
 		updatePosition();
 
-		// Listen for keyboard events
-		const handleKeyDownWrapper = (e: KeyboardEvent) => {
-			// Don't reappear if user just closed it
-			if (userInitiatedHide) return;
-			handleKeyDown(e);
-		};
-		window.addEventListener('keydown', handleKeyDownWrapper, true);
+		// Listen for keyboard events to handle escape
+		window.addEventListener('keydown', handleKeyDown, true);
 
 		// Listen for scroll events to update popup position
 		const handleScroll = () => {
@@ -99,44 +82,31 @@
 		};
 		window.addEventListener('scroll', handleScroll, true);
 
-		// Listen for editor blur to hide popup
-		const handleFocusOut = (e: FocusEvent) => {
-			if (userInitiatedHide) return;
-			if (editor && e.target === (editor as any).view?.dom) {
-				isVisible = false;
-				onHide();
-			}
-		};
-		(editor as any).view?.dom?.addEventListener?.('focusout', handleFocusOut);
-
 		return () => {
-			window.removeEventListener('keydown', handleKeyDownWrapper, true);
+			window.removeEventListener('keydown', handleKeyDown, true);
 			window.removeEventListener('scroll', handleScroll, true);
-			(editor as any).view?.dom?.removeEventListener?.('focusout', handleFocusOut);
 		};
 	});
 </script>
 
-{#if isVisible}
-	<div class="link-popup-wrapper" style="left: {x}px; top: {y}px;">
-		<div class="link-context-menu">
-			<div class="context-menu-header">
-				<span class="url-preview">{attrs.href || 'No URL'}</span>
-			</div>
-			<div class="context-menu-actions">
-				<button class="context-menu-action" onclick={handlePreview} title="Open link in new tab">
-					Preview
-				</button>
-				<button class="context-menu-action" onclick={handleEdit} title="Edit link URL">
-					Edit
-				</button>
-				<button class="context-menu-action" onclick={handleRemove} title="Remove link">
-					Remove
+<div class="link-popup-wrapper" style="left: {x}px; top: {y}px;">
+	<div class="link-context-menu">
+		<div class="context-menu-header">
+			<span class="url-preview">{attrs.href || 'No URL'}</span>
+		</div>
+		<div class="context-menu-actions">
+			<button class="context-menu-action" onclick={handlePreview} title="Open link in new tab">
+				Preview
+			</button>
+			<button class="context-menu-action" onclick={handleEdit} title="Edit link URL">
+				Edit
+			</button>
+			<button class="context-menu-action" onclick={handleRemove} title="Remove link">
+				Remove
 				</button>
 			</div>
 		</div>
 	</div>
-{/if}
 
 <style>
 	.link-popup-wrapper {

@@ -37,6 +37,7 @@ export function createPopupAPI(
 		onAction: () => {},
 		onHide: () => {}
 	};
+	let suppressCheckAndShow = false;
 
 	function getCursorMark(markName: string): Record<string, any> | null {
 		const { $from } = editor.state.selection;
@@ -76,7 +77,7 @@ export function createPopupAPI(
 		try {
 			const coords = editor.view.coordsAtPos(markStart - 1);
 			return { left: coords.left, bottom: coords.bottom };
-		} catch (e) {
+		} catch {
 			return null;
 		}
 	}
@@ -108,10 +109,18 @@ export function createPopupAPI(
 			...currentState,
 			isVisible: false
 		};
+		suppressCheckAndShow = true;
 		onStateChange(currentState);
+		// Reset after 150ms to prevent re-showing on keyup/other events that follow hide
+		setTimeout(() => {
+			suppressCheckAndShow = false;
+		}, 150);
 	}
 
 	function checkAndShow(markName: string, component: any) {
+		// Don't reappear if we just hid
+		if (suppressCheckAndShow) return;
+
 		const attrs = getCursorMark(markName);
 		if (attrs) {
 			show(markName, component, attrs);

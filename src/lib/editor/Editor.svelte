@@ -74,7 +74,7 @@
 	let contentAPI: any = null;
 	let documentAPI: any = null;
 	let formattingAPI: any = null;
-	let popupAPI: any = null;
+	let popupAPI = $state<any>(null);
 	let popupState = $state<any>({ isVisible: false, component: undefined, markName: '', attrs: {}, markStart: 0, markEnd: 0, onAction: () => {}, onHide: () => {} });
 
 	// Merge user config with defaults
@@ -87,8 +87,8 @@
 	let isLinkActive = $state(false);
 
 	// Popup menu state
-	let escapePressed = $state(false);
 	let allowPopup = $state(false); // Prevent popup from showing on initial mount
+	let isEditorFocused = $state(false); // Track if editor has focus
 
 	// ============================================================================
 
@@ -152,7 +152,7 @@
 			}
 
 			// Check and update popup menu based on cursor position
-			if (popupAPI && !escapePressed && allowPopup) {
+			if (popupAPI && allowPopup && isEditorFocused) {
 				popupAPI.checkAndShow('link', LinkPopup);
 			}
 		} catch {
@@ -215,7 +215,9 @@
 				...(editorConfig.history ? [History] : []),
 				Gapcursor,
 				Dropcursor,
-				...(editorConfig.formatting?.bold ? [Bold] : []),			...(editorConfig.formatting?.italic ? [Italic] : []),				...(editorConfig.formatting?.underline ? [Underline] : []),
+				...(editorConfig.formatting?.bold ? [Bold] : []),
+				...(editorConfig.formatting?.italic ? [Italic] : []),
+				...(editorConfig.formatting?.underline ? [Underline] : []),
 				...(editorConfig.links ? [Link.configure({ openOnClick: true })] : []),
 				CharacterCount.configure({
 					limit: characterLimit > 0 ? characterLimit : undefined
@@ -261,6 +263,21 @@
 		const dom = (editor as any).view?.dom;
 		if (dom) dom.addEventListener('keydown', handleKeydown);
 
+		// Track focus state
+		const handleEditorFocus = () => {
+			isEditorFocused = true;
+		};
+		const handleEditorBlur = () => {
+			isEditorFocused = false;
+			if (popupAPI) {
+				popupAPI.hide();
+			}
+		};
+		if (dom) {
+			dom.addEventListener('focus', handleEditorFocus);
+			dom.addEventListener('blur', handleEditorBlur);
+		}
+
 		// Listen to ProseMirror selection updates
 		try {
 			(editor as any).on?.('selectionUpdate', handleSelectionChange);
@@ -290,7 +307,11 @@
 		return () => {
 			if (editor) {
 				const dom = (editor as any).view?.dom;
-				if (dom) dom.removeEventListener('keydown', handleKeydown);
+				if (dom) {
+					dom.removeEventListener('keydown', handleKeydown);
+					dom.removeEventListener('focus', handleEditorFocus);
+					dom.removeEventListener('blur', handleEditorBlur);
+				}
 				try {
 					(editor as any).off?.('selectionUpdate', handleSelectionChange);
 				} catch {
@@ -417,7 +438,7 @@
 {/if}
 
 <!-- Popup Menu -->
-{#if popupState.isVisible && popupState.component}
+{#if popupState.isVisible && popupState.component && isEditorFocused}
 	<popupState.component
 		{editor}
 		attrs={popupState.attrs}
