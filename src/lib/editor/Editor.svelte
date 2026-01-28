@@ -33,6 +33,7 @@
 	import Bold from '@tiptap/extension-bold';
 	import Underline from '@tiptap/extension-underline';
 	import CharacterCount from '@tiptap/extension-character-count';
+	import BubbleMenu from '@tiptap/extension-bubble-menu';
 	import ProjectChip from './nodes/ProjectChip';
 	import { mergeDocuments, splitDocumentAt } from './tools';
 	import { createEditorAPI } from './api';
@@ -40,6 +41,7 @@
 	import { computeAbsolutePosForBlockOffset, computeBlockOffsetForAbsolutePos } from './utils/position';
 	import { getSelectedTextWithCustomNodes } from './utils/selection';
 	import { mergeConfig, type EditorConfig } from './config';
+	import Button from '$lib/components/ui/button/button.svelte';
 
 	// ============================================================================
 	// Props & State
@@ -58,18 +60,22 @@
 		onSelectionChange
 	}: any = $props();
 
-	// Merge user config with defaults
-	const editorConfig = mergeConfig(config);
-
 	let editor: TipTapEditor | null = null;
 	let editorElement: HTMLElement | null = null;
+	let bubbleMenuElement = $state<HTMLElement | null>(null);
 	let _debounceTimer: number | null = null;
 	let cursor: any = null;
 	let contentAPI: any = null;
-	let document: any = null;
+	let documentAPI: any = null;
 
-	// ============================================================================
-	// Event Handlers
+	// Merge user config with defaults
+	const editorConfig = $derived(mergeConfig(config));
+
+	// Bubble menu state
+	let isBoldActive = $state(false);
+	let isUnderlineActive = $state(false);
+	let isLinkActive = $state(false);
+
 	// ============================================================================
 
 	function handleEditorUpdate() {
@@ -114,8 +120,61 @@
 			if (payload && typeof onSelectionChange === 'function') {
 				onSelectionChange(payload);
 			}
+
+			// Update bubble menu button states
+			if (editorConfig.bubbleMenu) {
+				if (editorConfig.formatting?.bold) {
+					isBoldActive = editor.isActive('bold');
+				}
+				if (editorConfig.formatting?.underline) {
+					isUnderlineActive = editor.isActive('underline');
+				}
+				if (editorConfig.links) {
+					isLinkActive = editor.isActive('link');
+				}
+			}
 		} catch {
 			// Ignore errors
+		}
+	}
+
+	// ============================================================================
+	// Bubble Menu Actions
+	// ============================================================================
+
+	function toggleBold() {
+		if (!editor) return;
+		editor.chain().focus().toggleBold().run();
+		// Update button state immediately
+		setTimeout(() => handleSelectionChange(), 0);
+	}
+
+	function toggleUnderline() {
+		if (!editor) return;
+		editor.chain().focus().toggleUnderline().run();
+		// Update button state immediately
+		setTimeout(() => handleSelectionChange(), 0);
+	}
+
+	function toggleLink() {
+		if (!editor) return;
+		if (editor.isActive('link')) {
+			editor.chain().focus().unsetLink().run();
+		} else {
+			const url = prompt('Enter URL:');
+			if (url) {
+				editor.chain().focus().setLink({ href: url }).run();
+			}
+		}
+		// Update button state immediately
+		setTimeout(() => handleSelectionChange(), 0);
+	}
+
+	function insertChip() {
+		if (!editor || !contentAPI?.insertProjectChip) return;
+		const id = prompt('Enter project ID:');
+		if (id) {
+			contentAPI.insertProjectChip(id);
 		}
 	}
 
@@ -140,7 +199,14 @@
 				CharacterCount.configure({
 					limit: characterLimit > 0 ? characterLimit : undefined
 				}),
-				...(editorConfig.projectChips ? [ProjectChip] : [])
+				...(editorConfig.projectChips ? [ProjectChip] : []),
+				...(editorConfig.bubbleMenu && bubbleMenuElement
+					? [
+							BubbleMenu.configure({
+								element: bubbleMenuElement
+							})
+						]
+					: [])
 			],
 			content: deepClone(initial),
 			editable,
@@ -157,7 +223,7 @@
 		);
 		cursor = api.cursor;
 		contentAPI = api.content;
-		document = api.document;
+		documentAPI = api.document;
 
 		const dom = (editor as any).view?.dom;
 		if (dom) dom.addEventListener('keydown', handleKeydown);
@@ -194,7 +260,7 @@
 				editor = null;
 				cursor = null;
 				contentAPI = null;
-				document = null;
+				documentAPI = null;
 			}
 		};
 	});
@@ -224,6 +290,7 @@
 		}
 	});
 
+
 	// ============================================================================
 	// Exported API
 	// ============================================================================
@@ -240,10 +307,58 @@
 	 * editor.document.getJSON()
 	 * editor.content.insertProjectChip('id')
 	 */
-	export { cursor, contentAPI as content, document }
+	export { cursor, contentAPI as content, documentAPI as document }
 </script>
 
 <div class="editor-wrapper" bind:this={editorElement} aria-label="Rich text editor"></div>
+
+{#if editorConfig.bubbleMenu}
+	<div bind:this={bubbleMenuElement} class="bubble-menu flex gap-1 bg-card p-1 rounded-sm">
+		{#if editorConfig.formatting?.bold}
+			<Button
+				onclick={toggleBold}
+				variant={isBoldActive ? 'default' : 'ghost'}
+				size="icon-sm"
+				title="Bold"
+			>
+				<strong>B</strong>
+			</Button>
+		{/if}
+
+		{#if editorConfig.formatting?.underline}
+			<Button
+				onclick={toggleUnderline}
+				variant={isUnderlineActive ? 'default' : 'ghost'}
+				size="icon-sm"
+				title="Underline"
+			>
+				<span class="underline">U</span>
+			</Button>
+		{/if}
+
+		{#if editorConfig.links}
+			<Button
+				onclick={toggleLink}
+				variant={isLinkActive ? 'default' : 'ghost'}
+				size="icon-sm"
+				title="Link"
+			>
+				🔗
+			</Button>
+		{/if}
+
+		{#if editorConfig.projectChips}
+			<Button
+				onclick={insertChip}
+				variant="ghost"
+				size="icon-sm"
+				title="Insert Project Chip"
+			>
+				📎
+			</Button>
+		{/if}
+	</div>
+{/if}
 
 <style>
 	.editor-wrapper {

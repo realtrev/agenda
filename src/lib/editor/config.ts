@@ -40,6 +40,9 @@ export interface EditorConfig {
 		merge?: boolean;
 		split?: boolean;
 	};
+
+	/** Enable/disable bubble menu */
+	bubbleMenu?: boolean;
 }
 
 /**
@@ -69,7 +72,8 @@ export const DEFAULT_CONFIG: EditorConfig = {
 		blocks: true,
 		merge: true,
 		split: true
-	}
+	},
+	bubbleMenu: true
 };
 
 /**
@@ -85,6 +89,7 @@ export function mergeConfig(userConfig?: Partial<EditorConfig>): EditorConfig {
 		history: userConfig.history !== undefined ? userConfig.history : DEFAULT_CONFIG.history,
 		content: { ...DEFAULT_CONFIG.content, ...userConfig.content },
 		cursor: { ...DEFAULT_CONFIG.cursor, ...userConfig.cursor },
-		document: { ...DEFAULT_CONFIG.document, ...userConfig.document }
+		document: { ...DEFAULT_CONFIG.document, ...userConfig.document },
+		bubbleMenu: userConfig.bubbleMenu !== undefined ? userConfig.bubbleMenu : DEFAULT_CONFIG.bubbleMenu
 	};
 }
